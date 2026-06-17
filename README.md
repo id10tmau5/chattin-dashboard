@@ -8,68 +8,184 @@
 
 ## Overview
 
-A self-contained case tracking dashboard built with React, hosted on GitHub Pages, with automated DOC status checking via GitHub Actions and the Anthropic API.
+A React-based case tracking dashboard hosted on GitHub Pages, with on-demand DOC status checking via GitHub Actions and the Anthropic API. All data is sourced from public court records and is a matter of public record.
 
-All data displayed is sourced from public court records (PA UJS Portal, PA DOC Inmate Locator) and is a matter of public record.
-
----
-
-## Files
-
-| File | Purpose |
-|------|---------|
-| `index.html` | Main dashboard — open this URL or the file directly in any browser |
-| `chattin-case-dashboard.jsx` | React source (for editing in Claude or another editor) |
-| `status.json` | Latest DOC status — written by GitHub Actions on each run |
-| `.github/workflows/check-status.yml` | Manual-trigger GitHub Actions workflow |
+The project uses a simple three-layer architecture: a JSX source file you edit, a compiled JS file browsers execute, and a minimal HTML loader that never changes. Two GitHub Actions workflows handle everything else automatically.
 
 ---
 
-## Status Check Setup
+## How It Works
 
-The **Run Status Check** button in the dashboard triggers the `check-status.yml` workflow, which:
-1. Calls the Anthropic API with web search to look up Jackie's current DOC status
-2. Writes the result to `status.json`
-3. Commits and pushes `status.json` back to this repo
-4. GitHub Pages serves the updated file within seconds
+### Editing the dashboard
 
-The **Check for Updates** button simply re-fetches `status.json` to display the latest result.
+```
+You edit chattin-case-dashboard.jsx in Claude
+        ↓
+Push the updated .jsx to GitHub
+        ↓
+build.yml runs automatically (compiles JSX → JS)
+        ↓
+chattin-case-dashboard.js committed back to repo
+        ↓
+GitHub Pages redeploys — site updated within ~2 minutes
+```
 
-### One-time setup required
+The `.jsx` file is the only file you ever touch when making dashboard changes. The compiled `.js` is auto-regenerated and should never be hand-edited.
 
-**1. Add your Anthropic API key as a GitHub Secret:**
-   - Go to this repo → Settings → Secrets and variables → Actions → New repository secret
-   - Name: `ANTHROPIC_API_KEY`
-   - Value: your `sk-ant-...` key from console.anthropic.com
-   - *(Alternatively, use the ⚙ Configure panel in the dashboard to update it in-browser)*
+### Checking Jackie’s status
 
-**2. Create a GitHub Personal Access Token (PAT) for the dashboard buttons:**
-   - Go to github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)
-   - Generate new token → select `repo` scope → generate
-   - In the dashboard, click **⚙ configure** → paste the token → Save Token
-   - The token is stored in your browser's `localStorage` only — never sent to any server except `api.github.com`
+```
+Click “Run Status Check” in the dashboard
+        ↓
+Dashboard calls GitHub API → triggers check-status.yml
+        ↓
+Python script calls Anthropic API (web search enabled)
+        ↓
+AI searches PA DOC Locator, VINELink, public sources
+        ↓
+Result written to status.json and committed to repo
+        ↓
+Click “Check for Updates” → dashboard fetches status.json → displayed
+```
 
-**3. Enable GitHub Pages** (if not already):
-   - Repo → Settings → Pages → Source: Deploy from branch → Branch: `main` / `/ (root)` → Save
+The Anthropic API key used by the workflow is stored as a GitHub Actions secret (`ANTHROPIC_API_KEY`) and never appears in any file.
+
+### Opening the dashboard (Sam’s perspective)
+
+```
+Browser requests https://id10tmau5.github.io/chattin-dashboard/
+        ↓
+index.html downloads (1.7 KB — instant)
+        ↓
+React 18 loads from CDN (cached after first visit)
+mugshot-data.js loads (50 KB — cached after first visit)
+chattin-case-dashboard.js loads (99 KB — cached after first visit)
+        ↓
+React mounts, full dashboard renders (~1–2 seconds)
+```
 
 ---
 
-## Required PAT Permissions
+## File Reference
 
-| Feature | Required Scope |
-|---------|---------------|
-| Run Status Check (trigger workflow) | `repo` |
-| Edit API Key (update GitHub Secret) | `repo` |
+### Source file (you edit this)
+
+| File | Size | Description |
+|------|------|-------------|
+| `chattin-case-dashboard.jsx` | ~82 KB | **The master source file.** All dashboard UI, data, logic, and state lives here. Written in JSX (JavaScript with embedded HTML-like syntax). Browsers can’t run JSX directly — it must be compiled first. Edit this in Claude or any text editor, then push. The `build.yml` workflow compiles it automatically. |
+
+### Build output (auto-generated, never hand-edit)
+
+| File | Size | Description |
+|------|------|-------------|
+| `chattin-case-dashboard.js` | ~99 KB | **Compiled dashboard.** Babel transforms the `.jsx` into plain JavaScript that any modern browser can run without additional libraries. Auto-generated by `build.yml` on every `.jsx` push. Think of it like a `.pyc` relative to its `.py` — a build artifact, not the source. |
+
+### Application files (set and forget)
+
+| File | Size | Description |
+|------|------|-------------|
+| `index.html` | 1.7 KB | **Entry point.** Loads React from CDN, loads `mugshot-data.js` and `chattin-case-dashboard.js`, mounts the React app. Contains no dashboard content itself. Never needs to change once it’s correct. |
+| `mugshot-data.js` | ~50 KB | **Mugshot image data.** Sets `window.CHATTIN_MUGSHOT` to the PA DOC official photo as a base64-encoded data URL. Stored separately to keep the main JS payload manageable. Only changes if the DOC updates Jackie’s photo. |
+
+### Live data (auto-updated by workflow)
+
+| File | Size | Description |
+|------|------|-------------|
+| `status.json` | < 1 KB | **Latest DOC status.** Written by `check-status.yml` after each status check run. Contains the current custody status, location, parole number, confidence level, notes, and timestamp. The “Check for Updates” button in the dashboard fetches this file. |
+
+### GitHub Actions workflows
+
+| File | Trigger | Description |
+|------|---------|-------------|
+| `.github/workflows/build.yml` | Auto: on push to `.jsx` | **Build workflow.** Installs Babel, compiles `chattin-case-dashboard.jsx` to `chattin-case-dashboard.js`, commits the result. Keeps the compiled output in sync with the source automatically. The commit message uses `[skip ci]` to prevent triggering itself again. |
+| `.github/workflows/check-status.yml` | Manual only | **Status check workflow.** Calls the Anthropic API (using the `ANTHROPIC_API_KEY` secret) with web search enabled to look up Jackie’s current PA DOC custody status. Writes structured JSON to `status.json` and commits it. Triggered by the “Run Status Check” button (which calls GitHub’s workflow dispatch API) or manually from the Actions tab. No scheduled runs — manual only to conserve API tokens. |
+
+### Documentation and configuration
+
+| File | Description |
+|------|-------------|
+| `README.md` | This file. Project overview, architecture, setup instructions. |
+| `CHANGELOG.md` | Version history. |
+| `.gitignore` | Standard ignores: `.DS_Store`, `node_modules/`, `.env`, etc. |
+
+---
+
+## One-Time Setup
+
+### 1 — Add the Anthropic API key as a GitHub Secret
+
+Required for the “Run Status Check” workflow to call the Anthropic API.
+
+- Repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+- Name: `ANTHROPIC_API_KEY`
+- Value: your `sk-ant-…` key from [console.anthropic.com](https://console.anthropic.com)
+
+> You can also update this key later using the **⚙ Configure** panel in the dashboard, which opens GitHub’s secrets settings page directly.
+
+### 2 — Create a GitHub Personal Access Token (PAT)
+
+Required for the dashboard’s “Run Status Check” button to trigger the workflow via the GitHub API.
+
+- github.com → **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+- Generate new token → select **`repo`** scope → generate
+- In the dashboard, click **⚙ configure** → paste the token → **Save Token**
+
+The token is stored only in your browser’s `localStorage`. It is never transmitted to any server except `api.github.com` when triggering the workflow.
+
+| Feature | Scope required |
+|---------|----------------|
+| Trigger “Run Status Check” workflow | `repo` |
+| Update API key via ⚙ Configure | `repo` |
 
 A classic PAT with `repo` scope covers both. Fine-grained PAT alternative: `Actions: Write` + `Secrets: Write`.
+
+### 3 — Enable GitHub Pages
+
+- Repo → **Settings** → **Pages** → Source: **Deploy from branch** → Branch: `main` / `/ (root)` → **Save**
+- Live at `https://id10tmau5.github.io/chattin-dashboard/` within ~90 seconds
+
+---
+
+## Using the Dashboard
+
+### Check for Updates
+
+Fetches and displays the current contents of `status.json` — the result of the last workflow run. Instant. Works offline if `localStorage` has a cached result from a previous check.
+
+### Run Status Check
+
+Triggers `check-status.yml` via the GitHub API. Requires your GitHub PAT to be saved in ⚙ Configure. The workflow takes ~30 seconds to run. Click **Check for Updates** after to see the new result.
+
+### ⚙ Configure panel
+
+A small collapsible panel (click “⚙ configure” in the DOC Status Checker section). Contains:
+- **GitHub Token** — save your PAT here to enable the “Run Status Check” button
+- **Edit Anthropic API Key** — opens GitHub’s repository secrets settings in a new tab
+
+---
+
+## Editing the Dashboard
+
+1. Open a conversation with Claude and share this repo
+2. Ask Claude to read `chattin-case-dashboard.jsx` from GitHub and make the desired changes
+3. Download the updated `.jsx` from Claude’s output
+4. Commit and push it to this repo
+5. `build.yml` auto-compiles and redeploys — done
+
+To update the Anthropic API key used by the status check workflow: dashboard → **⚙ configure** → **Edit Anthropic API Key** → opens GitHub Secrets settings.
 
 ---
 
 ## Source Documents
 
-- [UJS Case Search](https://ujsportal.pacourts.us/casesearch) — search docket CP-54-CR-0000435-2021
-- [PA DOC Inmate Locator](https://inmatelocator.cor.pa.gov/) — search PE1239
-- [VINELink PA VINE](https://vinelink.vineapps.com/state/PA) — register for custody change alerts
+| Resource | URL |
+|----------|-----|
+| UJS Case Search (docket CP-54-CR-0000435-2021) | https://ujsportal.pacourts.us/casesearch |
+| PA DOC Inmate Locator (PE1239) | https://inmatelocator.cor.pa.gov/ |
+| VINELink PA VINE (custody change alerts) | https://vinelink.vineapps.com/state/PA |
+| PA SAVIN registration | https://www.pa.gov/services/pcv/register-for-offender-release-notifications |
+| PA Board of Probation & Parole | https://www.pbpp.pa.gov/ |
+| SCI Cambridge Springs | https://www.cor.pa.gov/Facilities/StatePrisons/Pages/Cambridge-Springs.aspx |
 
 ---
 
