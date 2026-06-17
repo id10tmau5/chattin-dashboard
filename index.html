@@ -1,1 +1,46 @@
-placeholder-html-v2
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Commonwealth v. Chattin — Case Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    #loading {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; background: #091623; color: #30C080;
+      font-family: monospace; font-size: 14px; flex-direction: column; gap: 12px;
+    }
+    input, textarea, button, select { font-family: inherit; }
+    a { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div>⌛ Loading dashboard…</div>
+    <div style="font-size:11px;opacity:0.5;">Commonwealth v. Chattin · CP-54-CR-0000435-2021</div>
+  </div>
+  <div id="root" style="display:none"></div>
+
+  <!-- React 18 (production build, cached by CDN) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Mugshot image data -->
+  <script src="./mugshot-data.js"></script>
+
+  <!-- Pre-compiled dashboard (no Babel transform needed — loads instantly) -->
+  <script src="./chattin-case-dashboard.js"></script>
+
+  <script>
+    // Mount once all scripts are loaded
+    window.addEventListener('load', function() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('root').style.display = 'block';
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(CaseDashboard));
+    });
+  </script>
+</body>
+</html>
