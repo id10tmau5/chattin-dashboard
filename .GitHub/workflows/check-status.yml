@@ -1,0 +1,87 @@
+name: Check DOC Status
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-status:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Query Anthropic API for current DOC status
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 << 'EOF'
+          import json, os, re, datetime, urllib.request, urllib.error
+
+          api_key = os.environ['ANTHROPIC_API_KEY']
+          payload = {
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 1000,
+            "tools": [{"type": "web_search_20250305", "name": "web_search"}],
+            "system": (
+              "You are a PA DOC custody status checker. Look up the CURRENT status of "
+              "PA DOC inmate Jacqueline Elizabeth Chattin, inmate number PE1239, "
+              "parole number 345JW. Search inmatelocator.cor.pa.gov, VINELink "
+              "(vinelink.vineapps.com), and any other publicly available sources. "
+              "Return ONLY a valid JSON object with no markdown, no backticks: "
+              "{\"status\":\"Inmate or Parolee or Discharged or Unknown\","
+              "\"currentLocation\":\"facility or district or null\","
+              "\"permanentLocation\":\"value or null\","
+              "\"paroleNumber\":\"345JW or updated or null\","
+              "\"inmateNumber\":\"PE1239\","
+              "\"lastDOCUpdate\":\"date string or null\","
+              "\"age\":\"current age or null\","
+              "\"notes\":\"any changes, decisions, transfers, or release info\","
+              "\"sourcesChecked\":[\"sources\"],"
+              "\"confidence\":\"High or Medium or Low\"}"
+            ),
+            "messages": [{"role": "user", "content": (
+              "Check current PA DOC custody status for Jacqueline Elizabeth Chattin, "
+              "inmate PE1239, parole 345JW. Still at SCI Cambridge Springs? "
+              "Transferred, paroled, or released? Return only JSON."
+            )}]
+          }
+          req = urllib.request.Request(
+            'https://api.anthropic.com/v1/messages',
+            data=json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json',
+                     'Authorization': f'Bearer {api_key}',
+                     'anthropic-version': '2023-06-01'},
+            method='POST'
+          )
+          try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+              data = json.loads(resp.read().decode('utf-8'))
+          except urllib.error.HTTPError as e:
+            raise RuntimeError(f"API error {e.code}: {e.read().decode()[:200]}")
+
+          raw = '\n'.join(c['text'] for c in data.get('content',[]) if c.get('type')=='text').strip()
+          print(f"Response:\n{raw}\n")
+          try:
+            clean = re.sub(r'```json\n?|```\n?','',raw).strip()
+            m = re.search(r'\{[\s\S]*\}', clean)
+            status = json.loads(m.group(0) if m else clean)
+          except Exception as e:
+            status = {"status":"Unknown","notes":raw[:500],"confidence":"Low",
+                      "sourcesChecked":[],"inmateNumber":"PE1239","paroleNumber":"345JW"}
+
+          status['lastChecked'] = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+          status['checkedBy']   = 'GitHub Actions (manual trigger)'
+          with open('status.json','w') as f:
+            json.dump(status, f, indent=2)
+          print(f"Status: {status.get('status')} | Location: {status.get('currentLocation')}")
+          EOF
+
+      - name: Commit status.json
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add status.json
+          git diff --staged --quiet && echo "No changes" || \
+            git commit -m "chore: status check $(date -u '+%Y-%m-%d %H:%M UTC')" && git push
