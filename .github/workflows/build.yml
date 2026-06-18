@@ -1,0 +1,59 @@
+name: Build Dashboard
+
+# Compiles chattin-case-dashboard.jsx → chattin-case-dashboard.js
+# on every push that touches the source file. Edit the .jsx, push, done.
+on:
+  push:
+    paths:
+      - 'chattin-case-dashboard.jsx'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Babel
+        run: |
+          npm install --save-dev \
+            @babel/core \
+            @babel/preset-react \
+            @babel/preset-env
+
+      - name: Compile JSX → JS
+        run: |
+          node << 'EOF'
+          const { transformFileSync } = require('@babel/core');
+          const { writeFileSync }     = require('fs');
+          console.log('Compiling...');
+          const result = transformFileSync('./chattin-case-dashboard.jsx', {
+            presets: [
+              ['@babel/preset-react', { runtime: 'classic' }],
+              ['@babel/preset-env', {
+                targets: 'last 2 Chrome versions, last 2 Safari versions, last 2 Firefox versions',
+                modules: false,
+              }]
+            ],
+          });
+          writeFileSync('./chattin-case-dashboard.js', result.code);
+          console.log(`Done: ${result.code.length.toLocaleString()} chars`);
+          EOF
+
+      - name: Commit compiled output
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git add chattin-case-dashboard.js
+          git diff --staged --quiet && echo "No changes" || \
+            git commit -m "build: compile JSX [skip ci]" && git push
