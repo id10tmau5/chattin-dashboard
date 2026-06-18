@@ -901,7 +901,7 @@ function CaseDashboard() {
               ))}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: C.textDim, marginBottom: 4 }}>
-              <span>← MOST SEVERE</span><span>LEAST SEVERE →</span>
+              <span>← LEAST SEVERE</span><span>MOST SEVERE →</span>
             </div>
             <div style={{ fontSize: 11, color: C.textSub }}>★ = Present in Jackie's case</div>
           </div>

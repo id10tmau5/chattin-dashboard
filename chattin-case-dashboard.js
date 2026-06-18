@@ -2708,7 +2708,7 @@ function CaseDashboard() {
       color: C.textDim,
       marginBottom: 4
     }
-  }, /*#__PURE__*/React.createElement("span", null, "← MOST SEVERE"), /*#__PURE__*/React.createElement("span", null, "LEAST SEVERE →")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "← LEAST SEVERE"), /*#__PURE__*/React.createElement("span", null, "MOST SEVERE →")), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: C.textSub
