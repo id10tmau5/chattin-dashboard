@@ -1031,6 +1031,33 @@ function CaseDashboard() {
     }, "PA VINE")));
   };
   const gradeC = g => g.startsWith('F2') ? C.red : g.startsWith('F3') ? C.orange : C.gold;
+
+  // ── Key Dates ──────────────────────────────────────────────────────────────
+  const TODAY = new Date(2026, 5, 16);
+  const OFFENSE = new Date(2021, 0, 10);
+  const ARREST = new Date(2021, 0, 18);
+  const SENTENCED = new Date(2021, 5, 8);
+  const SCI = new Date(2021, 6, 23);
+  const MUGSHOT_DT = new Date(2026, 5, 1);
+  const MIN_DATE = new Date(2026, 5, 8);
+  const MAX_DATE = new Date(2033, 5, 8);
+  const OPT_DATE = new Date(2027, 5, 8);
+  const LIKELY_DATE = new Date(2028, 11, 1);
+  const PESS_DATE = new Date(2031, 2, 1);
+  const daysOffense = daysBetween(OFFENSE, TODAY);
+  const daysArrest = daysBetween(ARREST, TODAY);
+  const daysSentenced = daysBetween(SENTENCED, TODAY);
+  const daysPastMin = daysBetween(MIN_DATE, TODAY);
+  const daysToMax = daysBetween(TODAY, MAX_DATE);
+  const totalMaxDays = daysBetween(SENTENCED, MAX_DATE);
+  const pctMax = (daysSentenced / totalMaxDays * 100).toFixed(1);
+  const estimatedCost = Math.round(daysArrest / 365.25 * 47000);
+  const daysToOpt = daysBetween(TODAY, OPT_DATE);
+  const daysToLikely = daysBetween(TODAY, LIKELY_DATE);
+  const daysToPess = daysBetween(TODAY, PESS_DATE);
+  const daysMugshotToMin = daysBetween(MUGSHOT_DT, MIN_DATE);
+  const currentAge = ageAt(TODAY);
+  const daysToNextBD = daysBetween(TODAY, new Date(2027, 1, 21));
   const charges = [{
     seq: 3,
     grade: 'F2',
