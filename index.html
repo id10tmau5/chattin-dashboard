@@ -20,51 +20,63 @@
   <div id="loading">
     <div id="load-msg">⌛ Loading dashboard…</div>
     <div style="font-size:11px;opacity:0.5;">Commonwealth v. Chattin · CP-54-CR-0000435-2021</div>
+    <div id="err-detail" style="display:none;font-size:10px;color:#8AAECE;max-width:320px;line-height:1.6;text-align:center;word-break:break-all"></div>
   </div>
   <div id="root" style="display:none"></div>
 
+  <script>
+    // MUST be first — catches React render errors and any other runtime errors
+    // that React 18 production mode silently swallows
+    window.onerror = function(msg, src, line, col, error) {
+      var el  = document.getElementById('loading');
+      var msgEl = document.getElementById('load-msg');
+      var det = document.getElementById('err-detail');
+      if (el)    { el.style.display = 'flex'; el.style.padding = '30px'; el.style.textAlign = 'center'; }
+      if (msgEl) { msgEl.style.color = '#F06060'; msgEl.textContent = '⚠ Runtime error'; }
+      if (det)   { det.style.display = 'block'; det.textContent = (msg || '') + ' — ' + (src || '').split('/').pop() + ':' + line; }
+      var root = document.getElementById('root');
+      if (root)  root.style.display = 'none';
+      return false;
+    };
+  </script>
+
   <!-- React 18 (production build) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"
-    onerror="document.getElementById('load-msg').textContent='⚠ Failed to load React from CDN. Check network connection.'"></script>
+    onerror="document.getElementById('load-msg').style.color='#F06060';document.getElementById('load-msg').textContent='⚠ CDN blocked: react.production.min.js'"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
-    onerror="document.getElementById('load-msg').textContent='⚠ Failed to load ReactDOM from CDN. Check network connection.'"></script>
+    onerror="document.getElementById('load-msg').style.color='#F06060';document.getElementById('load-msg').textContent='⚠ CDN blocked: react-dom.production.min.js'"></script>
 
   <!-- Mugshot image data -->
   <script src="./mugshot-data.js"
-    onerror="document.getElementById('load-msg').textContent='⚠ Failed to load mugshot-data.js'"></script>
+    onerror="document.getElementById('load-msg').style.color='#F06060';document.getElementById('load-msg').textContent='⚠ Failed to load mugshot-data.js'"></script>
 
-  <!-- Pre-compiled dashboard -->
-  <script src="./chattin-case-dashboard.js"
-    onerror="document.getElementById('load-msg').textContent='⚠ Failed to load chattin-case-dashboard.js'"></script>
+  <!-- Pre-compiled dashboard (cache-busted with file size as version) -->
+  <script src="./chattin-case-dashboard.js?v=102429"
+    onerror="document.getElementById('load-msg').style.color='#F06060';document.getElementById('load-msg').textContent='⚠ Failed to load chattin-case-dashboard.js'"></script>
 
   <script>
-    // All script tags above have already executed by the time this runs.
-    // No window.load listener needed — mount directly.
     try {
       if (!window.React || !window.ReactDOM) {
-        throw new Error('React or ReactDOM did not load (CDN may be blocked or unreachable)');
+        throw new Error('React or ReactDOM failed to load from CDN');
       }
       if (typeof CaseDashboard !== 'function') {
-        throw new Error('CaseDashboard is not defined (chattin-case-dashboard.js may have a syntax error)');
+        throw new Error('CaseDashboard not defined — chattin-case-dashboard.js may have an error');
       }
       document.getElementById('loading').style.display = 'none';
       document.getElementById('root').style.display = 'block';
-      var root = ReactDOM.createRoot(document.getElementById('root'));
+      var root = ReactDOM.createRoot(document.getElementById('root'), {
+        onRecoverableError: function(err) {
+          window.onerror('React recovered from: ' + err.message, 'react', 0, 0, err);
+        }
+      });
       root.render(React.createElement(CaseDashboard));
     } catch (e) {
-      // Show the error on the loading screen instead of a silent white screen
-      var el = document.getElementById('loading');
-      el.style.display = 'flex';
-      el.style.flexDirection = 'column';
-      el.style.gap = '14px';
-      el.style.padding = '30px';
-      el.style.textAlign = 'center';
-      document.getElementById('load-msg').style.color = '#F06060';
-      document.getElementById('load-msg').textContent = '⚠ Dashboard failed to initialize';
-      var detail = document.createElement('div');
-      detail.style.cssText = 'font-size:11px;color:#8AAECE;max-width:320px;line-height:1.6';
-      detail.textContent = e.message;
-      el.appendChild(detail);
+      var el  = document.getElementById('loading');
+      var msgEl = document.getElementById('load-msg');
+      var det = document.getElementById('err-detail');
+      if (el)    { el.style.display = 'flex'; el.style.padding = '30px'; el.style.textAlign = 'center'; }
+      if (msgEl) { msgEl.style.color = '#F06060'; msgEl.textContent = '⚠ Initialization error'; }
+      if (det)   { det.style.display = 'block'; det.textContent = e.message; }
     }
   </script>
 </body>
