@@ -454,6 +454,16 @@ function CaseDashboard() {
 
   const gradeC = (g) => g.startsWith('F2') ? C.red : g.startsWith('F3') ? C.orange : C.gold;
 
+  // ── Responsive breakpoint ────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 640
+  );
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+
   // ── Theme toggle options ────────────────────────────────────────────────────
   const themeOptions = [
     { id: 'dark',   label: '🌙 Dark'  },
@@ -844,6 +854,40 @@ function CaseDashboard() {
         </Section>
 
         {/* ══ OFFENSE GRADE SCALE ══════════════════════════════════════════════ */}
+        {/* ══ PA SAVIN ══════════════════════════════════════════════════════ */}
+        <Section title="PA SAVIN — Automatic Custody Notifications" icon="🔔" accent={C.green} C={C}>
+          <div style={{ background: C.greenFaint, border: `2px solid ${C.green}55`, borderRadius: 10, padding: '18px 20px', marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: C.green, marginBottom: 8 }}>⭐ Most Important Action — Register for Automatic Alerts</div>
+            <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7, marginBottom: 14 }}>
+              <strong style={{ color: C.text }}>PA SAVIN (Statewide Automated Victim Information &amp; Notification)</strong> sends automatic phone, text, email, or app alerts the moment custody status changes — release, transfer, or escape. The service is <strong style={{ color: C.green }}>free, anonymous, and confidential</strong>. The subject will not know you registered.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 14 }}>
+              {[
+                { label: 'VINE Toll-Free',  value: '1-866-972-7284', icon: '📞' },
+                { label: 'Inmate # to use', value: 'PE1239',          icon: '🔢' },
+                { label: 'PIN needed',      value: '4-digit (you choose)', icon: '🔑' },
+                { label: 'Cost',            value: 'FREE',            icon: '✅' },
+              ].map(item => (
+                <div key={item.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{item.icon} {item.label}</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.green }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <a href={LINKS.vineLink}  target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>🌐 VINELink.com ↗</a>
+              <a href={LINKS.paSavin}   target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>🏛️ PA.gov SAVIN ↗</a>
+              <a href={LINKS.paVictims} target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>⚖️ PA Victims Portal ↗</a>
+            </div>
+          </div>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', fontSize: 12, color: C.textSub, lineHeight: 1.8 }}>
+            <strong style={{ color: C.text }}>How to register (3 options):</strong><br />
+            📱 <strong>App:</strong> Download VINELink → Select Pennsylvania → Search PE1239 → Get Notified → add phone/email + 4-digit PIN<br />
+            📞 <strong>Phone:</strong> Call 1-866-972-7284 and follow prompts<br />
+            🌐 <strong>Web:</strong> vinelink.dhs.gov → Pennsylvania → PE1239 → Register
+          </div>
+        </Section>
+
         <Section title="PA Offense Grade Scale & Severity" icon="📏" accent={C.orange} C={C}>
           {/* Visual severity bar */}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 20px', marginBottom: 14, boxShadow: C.shadow }}>

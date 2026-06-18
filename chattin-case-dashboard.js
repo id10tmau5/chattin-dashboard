@@ -1032,6 +1032,14 @@ function CaseDashboard() {
   };
   const gradeC = g => g.startsWith('F2') ? C.red : g.startsWith('F3') ? C.orange : C.gold;
 
+  // ── Responsive breakpoint ────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+
   // ── Theme toggle options ────────────────────────────────────────────────────
   const themeOptions = [{
     id: 'dark',
@@ -2476,6 +2484,156 @@ function CaseDashboard() {
       color: C.textSub
     }
   }, s))))))), /*#__PURE__*/React.createElement(Section, {
+    title: "PA SAVIN — Automatic Custody Notifications",
+    icon: "🔔",
+    accent: C.green,
+    C: C
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.greenFaint,
+      border: `2px solid ${C.green}55`,
+      borderRadius: 10,
+      padding: '18px 20px',
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15,
+      color: C.green,
+      marginBottom: 8
+    }
+  }, "⭐ Most Important Action — Register for Automatic Alerts"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: C.textSub,
+      lineHeight: 1.7,
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: C.text
+    }
+  }, "PA SAVIN (Statewide Automated Victim Information & Notification)"), " sends automatic phone, text, email, or app alerts the moment custody status changes — release, transfer, or escape. The service is ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: C.green
+    }
+  }, "free, anonymous, and confidential"), ". The subject will not know you registered."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+      gap: 10,
+      marginBottom: 14
+    }
+  }, [{
+    label: 'VINE Toll-Free',
+    value: '1-866-972-7284',
+    icon: '📞'
+  }, {
+    label: 'Inmate # to use',
+    value: 'PE1239',
+    icon: '🔢'
+  }, {
+    label: 'PIN needed',
+    value: '4-digit (you choose)',
+    icon: '🔑'
+  }, {
+    label: 'Cost',
+    value: 'FREE',
+    icon: '✅'
+  }].map(item => /*#__PURE__*/React.createElement("div", {
+    key: item.label,
+    style: {
+      background: C.card,
+      border: `1px solid ${C.border}`,
+      borderRadius: 8,
+      padding: '10px 14px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: C.textSub,
+      marginBottom: 4
+    }
+  }, item.icon, " ", item.label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: C.mono,
+      fontSize: 14,
+      fontWeight: 700,
+      color: C.green
+    }
+  }, item.value)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: LINKS.vineLink,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      color: C.green,
+      textDecoration: 'none',
+      fontSize: 12,
+      padding: '5px 10px',
+      border: `1px solid ${C.green}55`,
+      borderRadius: 6,
+      background: C.greenFaint,
+      fontFamily: C.mono
+    }
+  }, "🌐 VINELink.com ↗"), /*#__PURE__*/React.createElement("a", {
+    href: LINKS.paSavin,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      color: C.green,
+      textDecoration: 'none',
+      fontSize: 12,
+      padding: '5px 10px',
+      border: `1px solid ${C.green}55`,
+      borderRadius: 6,
+      background: C.greenFaint,
+      fontFamily: C.mono
+    }
+  }, "🏛️ PA.gov SAVIN ↗"), /*#__PURE__*/React.createElement("a", {
+    href: LINKS.paVictims,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      color: C.green,
+      textDecoration: 'none',
+      fontSize: 12,
+      padding: '5px 10px',
+      border: `1px solid ${C.green}55`,
+      borderRadius: 6,
+      background: C.greenFaint,
+      fontFamily: C.mono
+    }
+  }, "⚖️ PA Victims Portal ↗"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 8,
+      padding: '14px 16px',
+      fontSize: 12,
+      color: C.textSub,
+      lineHeight: 1.8
+    }
+  }, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: C.text
+    }
+  }, "How to register (3 options):"), /*#__PURE__*/React.createElement("br", null), "📱 ", /*#__PURE__*/React.createElement("strong", null, "App:"), " Download VINELink → Select Pennsylvania → Search PE1239 → Get Notified → add phone/email + 4-digit PIN", /*#__PURE__*/React.createElement("br", null), "📞 ", /*#__PURE__*/React.createElement("strong", null, "Phone:"), " Call 1-866-972-7284 and follow prompts", /*#__PURE__*/React.createElement("br", null), "🌐 ", /*#__PURE__*/React.createElement("strong", null, "Web:"), " vinelink.dhs.gov → Pennsylvania → PE1239 → Register")), /*#__PURE__*/React.createElement(Section, {
     title: "PA Offense Grade Scale & Severity",
     icon: "📏",
     accent: C.orange,
