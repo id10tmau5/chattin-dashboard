@@ -18,29 +18,54 @@
 </head>
 <body>
   <div id="loading">
-    <div>⌛ Loading dashboard…</div>
+    <div id="load-msg">⌛ Loading dashboard…</div>
     <div style="font-size:11px;opacity:0.5;">Commonwealth v. Chattin · CP-54-CR-0000435-2021</div>
   </div>
   <div id="root" style="display:none"></div>
 
-  <!-- React 18 (production build, cached by CDN) -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- React 18 (production build) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"
+    onerror="document.getElementById('load-msg').textContent='⚠ Failed to load React from CDN. Check network connection.'"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+    onerror="document.getElementById('load-msg').textContent='⚠ Failed to load ReactDOM from CDN. Check network connection.'"></script>
 
   <!-- Mugshot image data -->
-  <script src="./mugshot-data.js"></script>
+  <script src="./mugshot-data.js"
+    onerror="document.getElementById('load-msg').textContent='⚠ Failed to load mugshot-data.js'"></script>
 
-  <!-- Pre-compiled dashboard (no Babel transform needed — loads instantly) -->
-  <script src="./chattin-case-dashboard.js"></script>
+  <!-- Pre-compiled dashboard -->
+  <script src="./chattin-case-dashboard.js"
+    onerror="document.getElementById('load-msg').textContent='⚠ Failed to load chattin-case-dashboard.js'"></script>
 
   <script>
-    // Mount once all scripts are loaded
-    window.addEventListener('load', function() {
+    // All script tags above have already executed by the time this runs.
+    // No window.load listener needed — mount directly.
+    try {
+      if (!window.React || !window.ReactDOM) {
+        throw new Error('React or ReactDOM did not load (CDN may be blocked or unreachable)');
+      }
+      if (typeof CaseDashboard !== 'function') {
+        throw new Error('CaseDashboard is not defined (chattin-case-dashboard.js may have a syntax error)');
+      }
       document.getElementById('loading').style.display = 'none';
       document.getElementById('root').style.display = 'block';
-      const root = ReactDOM.createRoot(document.getElementById('root'));
+      var root = ReactDOM.createRoot(document.getElementById('root'));
       root.render(React.createElement(CaseDashboard));
-    });
+    } catch (e) {
+      // Show the error on the loading screen instead of a silent white screen
+      var el = document.getElementById('loading');
+      el.style.display = 'flex';
+      el.style.flexDirection = 'column';
+      el.style.gap = '14px';
+      el.style.padding = '30px';
+      el.style.textAlign = 'center';
+      document.getElementById('load-msg').style.color = '#F06060';
+      document.getElementById('load-msg').textContent = '⚠ Dashboard failed to initialize';
+      var detail = document.createElement('div');
+      detail.style.cssText = 'font-size:11px;color:#8AAECE;max-width:320px;line-height:1.6';
+      detail.textContent = e.message;
+      el.appendChild(detail);
+    }
   </script>
 </body>
 </html>
