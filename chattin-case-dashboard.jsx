@@ -454,6 +454,31 @@ function CaseDashboard() {
 
   const gradeC = (g) => g.startsWith('F2') ? C.red : g.startsWith('F3') ? C.orange : C.gold;
 
+  // ── Theme toggle options ────────────────────────────────────────────────────
+  const themeOptions = [
+    { id: 'dark',   label: '🌙 Dark'  },
+    { id: 'light',  label: '☀️ Light' },
+    { id: 'system', label: '💻 Auto'  },
+  ];
+
+  // ── Badge weight style helper ────────────────────────────────────────────────
+  const wStyle = (c) => ({
+    background: c + (C === DARK ? '28' : '16'), color: c, border: `1px solid ${c}`,
+    fontFamily: C.mono, fontSize: 9, fontWeight: 700, letterSpacing: 1.5,
+    padding: '2px 6px', borderRadius: 3, whiteSpace: 'nowrap'
+  });
+
+  // ── PA Grade Scale data ──────────────────────────────────────────────────────
+  const paGrades = [
+    { grade: 'F1', name: 'Felony 1st Degree',      maxPrison: '20 years', maxFine: '$25,000', ogsRange: '10–14', color: '#C00000' },
+    { grade: 'F2', name: 'Felony 2nd Degree',      maxPrison: '10 years', maxFine: '$25,000', ogsRange: '5–9',   color: C.red     },
+    { grade: 'F3', name: 'Felony 3rd Degree',      maxPrison: '7 years',  maxFine: '$15,000', ogsRange: '3–5',   color: C.orange  },
+    { grade: 'M1', name: 'Misdemeanor 1st Degree', maxPrison: '5 years',  maxFine: '$10,000', ogsRange: '1–4',   color: C.gold    },
+    { grade: 'M2', name: 'Misdemeanor 2nd Degree', maxPrison: '2 years',  maxFine: '$5,000',  ogsRange: '1–3',   color: C.textSub },
+    { grade: 'M3', name: 'Misdemeanor 3rd Degree', maxPrison: '1 year',   maxFine: '$2,500',  ogsRange: '1–2',   color: C.textDim },
+    { grade: 'S',  name: 'Summary Offense',        maxPrison: '90 days',  maxFine: '$300',    ogsRange: '1',     color: C.textDim },
+  ];
+
   // ── Key Dates ──────────────────────────────────────────────────────────────
   const TODAY       = new Date(2026, 5, 16);
   const OFFENSE     = new Date(2021, 0, 10);
