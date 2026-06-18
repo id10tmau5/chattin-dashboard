@@ -1,0 +1,14 @@
+{
+  "name": "chattin-dashboard-build",
+  "version": "1.0.0",
+  "description": "Build tooling — compiles chattin-case-dashboard.jsx to .js via Babel",
+  "private": true,
+  "scripts": {
+    "build": "node compile.js"
+  },
+  "devDependencies": {
+    "@babel/core": "^8.0.1",
+    "@babel/preset-env": "^8.0.1",
+    "@babel/preset-react": "^8.0.1"
+  }
+}
