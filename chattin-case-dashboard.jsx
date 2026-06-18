@@ -267,7 +267,7 @@ function CaseDashboard() {
       );
       if (resp.status === 204) {
         setTriggerStatus('ok');
-        setTriggerMsg('✓ Workflow triggered! Check for Updates re-enables in 45 seconds.');
+        setTriggerMsg('✓ Status check running — tap Check for Updates in about 45 seconds.');
         setCheckCooldown(45);
       } else {
         const err = await resp.json().catch(() => ({}));
@@ -325,7 +325,7 @@ function CaseDashboard() {
 
     const StatusCheckerWidget = () => {
     const scColors = { Inmate: C.red, Parolee: C.gold, Discharged: C.green };
-    const scLabels = { Inmate: '🔒 INMATE', Parolee: '📋 PAROLEE', Discharged: '✅ DISCHARGED' };
+    const scLabels = { Inmate: '🔒 INCARCERATED', Parolee: '📋 ON PAROLE', Discharged: '✅ DISCHARGED' };
     const sc = scColors[docStatus?.status] || C.blue;
     const fmtTS = (ts) => {
       if (!ts) return null;
@@ -340,7 +340,7 @@ function CaseDashboard() {
             <span style={{ fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:C.green }}>DOC Status Checker</span>
           </div>
           <button onClick={() => setConfigOpen(o => !o)} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:0.5, padding:'2px 6px', borderRadius:4, textDecoration:configOpen?'none':'underline' }}>
-            ⚙ {configOpen ? 'close' : 'configure'}
+            ⚙ {configOpen ? 'close' : 'setup'}
           </button>
         </div>
 
@@ -349,10 +349,10 @@ function CaseDashboard() {
             <div style={{ fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:1.5, marginBottom:12 }}>CONFIGURATION</div>
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
-                GitHub Token <span style={{ color:C.textDim, fontSize:10 }}>(needs <code>repo</code> scope · stored in browser only · used for Run Status Check and Edit API Key)</span>
+                Access Token <span style={{ color:C.textDim, fontSize:10 }}>(one-time setup · stored in browser only)</span>
               </div>
               <div style={{ display:'flex', gap:8 }}>
-                <input type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" value={ghTokenInput} onChange={e => setGhTokenInput(e.target.value)}
+                <input type="password" placeholder="enter access token…" value={ghTokenInput} onChange={e => setGhTokenInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSaveToken()}
                   style={{ flex:1, padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }} />
                 <button onClick={handleSaveToken} style={{ padding:'7px 14px', borderRadius:6, border:`1px solid ${C.green}`, background:tokenSaved ? C.green : C.greenFaint, color:tokenSaved ? '#fff' : C.green, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
@@ -362,14 +362,14 @@ function CaseDashboard() {
             </div>
             <div>
               <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
-                Edit Anthropic API Key <span style={{ color:C.textDim, fontSize:10 }}>(updates the ANTHROPIC_API_KEY GitHub Secret · requires token above)</span>
+                Update Service Key <span style={{ color:C.textDim, fontSize:10 }}>(optional · requires token above)</span>
               </div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                <input type="password" placeholder="sk-ant-xxxxxxxxxxxx" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)}
+                <input type="password" placeholder="enter new key…" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleUpdateApiKey()}
                   style={{ flex:1, minWidth:160, padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }} />
                 <button onClick={handleUpdateApiKey} style={{ padding:'7px 14px', borderRadius:6, border:`1px solid ${C.gold}`, background:C.goldFaint, color:C.gold, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
-                  ↗ Open GitHub Secrets
+                  ↗ Manage Key
                 </button>
               </div>
               {apiKeyMsg && <div style={{ fontSize:11, marginTop:6, color:apiKeyMsg.startsWith('✓') ? C.green : C.red }}>{apiKeyMsg}</div>}
@@ -410,7 +410,7 @@ function CaseDashboard() {
           {loadError && <div style={{ padding:'9px 14px', borderRadius:7, marginBottom:14, fontSize:12, background:C.redFaint, border:`1px solid ${C.red}44`, color:C.red }}>⚠ {loadError} — make sure the repo is live on GitHub Pages</div>}
 
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12, color:C.textSub, lineHeight:1.6 }}>
-            <strong style={{ color:C.text }}>Check for Updates</strong> loads the last workflow result instantly. <strong style={{ color:C.text }}>Run Status Check</strong> triggers a fresh AI web search via GitHub Actions (~30s) — hit Check for Updates a minute later to see the new result. Requires a GitHub token with <code>repo</code> scope in <span style={{ color:C.textDim }}>⚙ configure</span>.
+            <strong style={{ color:C.text }}>Check for Updates</strong> loads the last workflow result instantly. <strong style={{ color:C.text }}>Run Status Check</strong> performs a fresh lookup — results typically appear within 30–60 seconds. Tap Check for Updates again after to see them.
           </div>
 
           {lastChecked && (
@@ -655,76 +655,361 @@ function CaseDashboard() {
 
       <div style={{ padding: '24px 24px 0' }}>
 
-        {/* ══ VINELink / WHAT TO DO WITH NUMBERS ══════════════════════════════ */}
-        <Section title="Using the Inmate & Parole Numbers" icon="🔔" accent={C.green} C={C}>
-          <div style={{ background: C.greenFaint, border: `2px solid ${C.green}55`, borderRadius: 10, padding: '16px 20px', marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: C.green, marginBottom: 8 }}>⭐ Most Important Action: Register on VINELink with Inmate #PE1239</div>
-            <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7, marginBottom: 12 }}>
-              <strong style={{ color: C.text }}>VINELink</strong> (Pennsylvania's SAVIN — Statewide Automated Victim Information and Notification system) is a free service open to anyone. Register with Jackie's inmate number <strong style={{ color: C.text }}>PE1239</strong> to receive automatic <strong style={{ color: C.text }}>text, email, or phone call</strong> notifications the moment her custody status changes — including parole grant, release, transfer, or return to prison. You'll know before you'd ever see it on the DOC website.
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <ExLink href={LINKS.vinelink} label="Register on VINELink — PA · Inmate PE1239" icon="🔔" color={C.green} />
-              <ExLink href={LINKS.ova}      label="PA Office of Victim Advocate"              icon="⚖️" color={C.green} />
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 24, alignItems: "start" }}>
+          <div>
+            
+            <Section title="PA DOC Inmate Profile"
+             icon="🪪" accent={C.blue} C={C}>
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr', gap: 16, alignItems: 'start' }}>
+                        <div style={{ textAlign: 'center', ...(isMobile && { display: 'flex', flexDirection: 'column', alignItems: 'center' }) }}>
+                          <div style={{ border: `2px solid ${C.blue}55`, borderRadius: 8, overflow: 'hidden', width: 130, background: C.surface, boxShadow: C.shadow }}>
+                            <img src={MUGSHOT} alt="PA DOC official photo" style={{ width: '100%', display: 'block' }} />
+                          </div>
+                          <div style={{ fontFamily: C.mono, fontSize: 9, color: C.textDim, marginTop: 6, lineHeight: 1.4 }}>
+                            PA DOC OFFICIAL PHOTO<br/>Taken: 6/1/2026 · 9:35:05 AM
+                          </div>
+                          <div style={{ marginTop: 6, fontFamily: C.mono, fontSize: 10, color: C.purple, fontWeight: 700 }}>← {daysMugshotToMin}d before min.</div>
+                        </div>
+                        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px', borderTop: `3px solid ${C.blue}`, boxShadow: C.shadow }}>
+                          <div style={{ fontFamily: C.mono, fontSize: 10, color: C.blue, letterSpacing: 2, marginBottom: 12 }}>PA DEPARTMENT OF CORRECTIONS · INMATE RECORD</div>
+                          <InfoRow label="Inmate Number"      value="PE1239"                      mono color={C.gold}   C={C} />
+                          <InfoRow label="Parole Number"      value="345JW"                       mono color={C.purple} C={C} />
+                          <InfoRow label="Commit Name"        value="Jacqueline Elizabeth Chattin"                      C={C} />
+                          <InfoRow label="AKAs"               value="Jacqueline Chattin · Jacqueline E. Chattin"       C={C} />
+                          <InfoRow label="Date of Birth"      value="02/21/1991"                  mono                  C={C} />
+                          <InfoRow label="Age"                value="35"                          mono color={C.purple} C={C} />
+                          <InfoRow label="Height"             value={`5' 7"`}                      mono                  C={C} />
+                          <InfoRow label="Gender"             value="Female"                                            C={C} />
+                          <InfoRow label="Citizenship"        value="United States of America"                          C={C} />
+                          <InfoRow label="Current Location"   value="SCI Cambridge Springs"             color={C.blue}  C={C} />
+                          <InfoRow label="Permanent Location" value="SCI Cambridge Springs"             color={C.blue}  C={C} />
+                          <InfoRow label="Committing County"  value="Schuylkill"                                        C={C} />
+                          <InfoRow label="Last Updated"       value="6/16/2026 · 4:00:31 AM"      mono color={C.green} C={C} />
+                          <InfoRow label="Mugshot Date"       value="6/1/2026 · 9:35:05 AM"       mono color={C.purple} C={C} />
+                          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <ExLink href={LINKS.docLocator} label="Live DOC Locator · PE1239" icon="🔍" color={C.blue} />
+                            <ExLink href={LINKS.paDOC}      label="PA Dept. of Corrections"   icon="🏛️" color={C.blue} />
+                          </div>
+                        </div>
+                      </div>
+                    </Section>
+          </div>
+          <div>
+            
+            {/* ══ DOC STATUS CHECKER ══════════════════════════════════════════ */}
+                    <StatusCheckerWidget />
+          </div>
+        </div>
+
+
+
+        {/* ══ SENTENCE STATUS ═════════════════════════════════════════════════ */}
+        <Section title="Sentence Status" icon="⏱️" C={C}>
+          <div style={{ background: C.greenFaint, border: `1px solid ${C.green}55`, borderRadius: 8, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>✅</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: C.green }}>MINIMUM SENTENCE DATE REACHED</div>
+              <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>60-month minimum reached <strong style={{ color: C.text }}>June 8, 2026</strong> at age <strong style={{ color: C.purple }}>35</strong>. Now <strong style={{ color: C.green }}>{daysPastMin} days</strong> past minimum. Parole #345JW active.</div>
             </div>
           </div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', marginBottom: 16, boxShadow: C.shadow }}>
+            {[
+              { label: 'MINIMUM SERVED (60 months)', pct: 100, color: C.green, done: true, left: 'Jun 8, 2021 (age 30)', right: 'Jun 8, 2026 (age 35) ← REACHED' },
+              { label: `MAXIMUM SERVED (144 months)`, pct: parseFloat(pctMax), color: C.gold, done: false, left: 'Jun 8, 2021 (age 30)', right: 'Jun 8, 2033 (age 42)', pctLabel: pctMax + '%' },
+            ].map((bar, i) => (
+              <div key={i} style={{ marginBottom: i === 0 ? 16 : 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: C.textSub }}>{bar.label}</span>
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: bar.color, fontWeight: 700 }}>{bar.done ? '100% ✓' : bar.pctLabel}</span>
+                </div>
+                <ProgressBar pct={bar.pct} color={bar.color} height={10} C={C} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                  <span style={{ fontSize: 10, color: C.textDim }}>{bar.left}</span>
+                  <span style={{ fontSize: 10, color: C.textDim }}>{bar.right}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 12 }}>
+            <StatCard label="Days Since Offense" value={daysOffense.toLocaleString()} sub="Age 29 → 35" accent={C.red} icon="🔴" C={C} />
+            <StatCard label="Days in Custody"    value={daysArrest.toLocaleString()}  sub="Since Jan 18, 2021" accent={C.orange} icon="🔒" C={C} />
+            <StatCard label="Days Past Minimum"  value={daysPastMin} sub="Parole-eligible" accent={C.green} icon="✅" C={C} />
+            <StatCard label="Days to Max"        value={daysToMax.toLocaleString()} sub="Jun 2033 · age 42" accent={C.blue} icon="📅" C={C} />
+            <StatCard label="Min Sentence"       value="60 mo" sub="5 yrs · age 30→35" accent={C.gold} icon="⚖️" C={C} />
+            <StatCard label="Max Sentence"       value="144 mo" sub="12 yrs · age 30→42" accent={C.gold} icon="⚖️" C={C} />
+            <StatCard label="Max % Served"       value={`${pctMax}%`} sub="of 144-month max" accent={C.gold} icon="📊" C={C} />
+            <StatCard label="Est. Cost (DOC)"    value={`$${(estimatedCost/1000).toFixed(0)}K`} sub="~$47K/yr PA avg" accent={C.textSub} icon="💰" C={C} />
+          </div>
+        </Section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', boxShadow: C.shadow }}>
-              <div style={{ fontFamily: C.mono, fontSize: 10, color: C.gold, letterSpacing: 1.5, marginBottom: 10 }}>INMATE NUMBER — PE1239</div>
-              <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6, marginBottom: 10 }}>
-                Use on the PA DOC Inmate Locator for instant direct access to her current record — faster than searching by name. Confirms current facility, location, and status. Last updated 6/16/2026 at 4:00 AM automatically.
+
+
+        {/* ══ PAROLE PROJECTIONS ══════════════════════════════════════════════ */}
+        <Section title="Parole Release Projections" icon="📊" C={C}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', marginBottom: 14, boxShadow: C.shadow }}>
+            {[
+              { label: 'At Minimum (Jun 2026)',  pct: 20, color: C.red,    note: 'Low — violent offense + prior history at first hearing', days: daysPastMin, past: true, age: 35 },
+              { label: 'Optimistic (Jun 2027)',  pct: 35, color: C.orange, note: 'Possible with strong program participation', days: daysToOpt, age: 36 },
+              { label: 'Most Likely (Late 2028)',pct: 60, color: C.gold,   note: 'Probable range with clean institutional record', days: daysToLikely, age: 37 },
+              { label: 'Pessimistic (Mar 2031)', pct: 85, color: C.green,  note: 'Board likely relents after multiple hearings', days: daysToPess, age: 40 },
+              { label: 'Maximum (Jun 2033)',     pct: 100, color: C.blue,  note: 'Mandatory release — legally cannot be held further', days: daysToMax, age: 42 },
+            ].map(sc => (
+              <div key={sc.label} style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.text, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {sc.label} <AgePill age={sc.age} color={sc.color} />
+                  </span>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    {sc.past ? <span style={{ fontFamily: C.mono, fontSize: 10, color: C.green }}>✓ PASSED ({daysPastMin}d ago)</span> : <span style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim }}>{sc.days.toLocaleString()}d away</span>}
+                    <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: sc.color }}>{sc.pct}%</span>
+                  </div>
+                </div>
+                <ProgressBar pct={sc.pct} color={sc.color} height={6} C={C} />
+                <div style={{ fontSize: 11, color: C.textSub, marginTop: 3 }}>{sc.note}</div>
               </div>
-              <ExLink href={LINKS.docLocator} label="DOC Inmate Locator · PE1239" icon="🔍" color={C.blue} />
+            ))}
+          </div>
+          <div style={{ background: C.purpleFaint, border: `1px solid ${C.purple}44`, borderRadius: 8, padding: '12px 16px' }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: C.purple }}>⚠️ Updated: Active Parole Processing Underway</div>
+            <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6 }}>Parole #345JW assigned + June 1 mugshot update shifts the near-term picture. She is actively in parole processing — a hearing may have already occurred or be imminent. The most likely near-term outcome is either a conditional grant or a denial with a future hearing date. ACT 84 payments through May 2026 confirm she remained incarcerated through last month.</div>
+          </div>
+        </Section>
+
+
+
+        {/* ══ PAROLE FACTORS ══════════════════════════════════════════════════ */}
+        <Section title="Parole Board Factor Analysis" icon="⚖️" C={C}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.red, letterSpacing: 1.5, marginBottom: 10 }}>▼ FACTORS WEIGHING AGAINST PAROLE</div>
+            {against.map(f => (
+              <Expand key={f.label} label={f.label} icon={<span style={{...wStyle(f.c)}}>{f.w}</span>} accent={f.c} C={C}>
+                <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7 }}>{f.detail}</div>
+              </Expand>
+            ))}
+          </div>
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.green, letterSpacing: 1.5, marginBottom: 10 }}>▲ FACTORS WEIGHING IN FAVOR OF PAROLE</div>
+            {inFavor.map(f => (
+              <Expand key={f.label} label={f.label} icon={<span style={{...wStyle(f.c)}}>{f.w}</span>} accent={f.c} C={C}>
+                <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7 }}>{f.detail}</div>
+              </Expand>
+            ))}
+          </div>
+        </Section>
+
+
+
+        {/* ══ TIMELINE ════════════════════════════════════════════════════════ */}
+        <Section title="Case Timeline" icon="📅" C={C}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'absolute', left: 22, top: 24, bottom: 24, width: 2, background: `linear-gradient(to bottom, ${C.red}, ${C.gold}, ${C.purple}, ${C.green}, ${C.textDim})` }} />
+            {tlEvents.map((ev, i) => (
+              <div key={i} style={{ display: 'flex', gap: 16, marginBottom: 12, paddingLeft: 10 }}>
+                <div style={{ position: 'relative', zIndex: 1, flexShrink: 0 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.future ? C.surface : ev.dot, border: `2px solid ${ev.dot}`, marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: !ev.future ? `0 0 8px ${ev.dot}55` : 'none' }}>
+                    {!ev.future ? <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} /> : <div style={{ width: 7, height: 7, borderRadius: '50%', background: ev.dot, opacity: 0.4 }} />}
+                  </div>
+                </div>
+                <div style={{ background: ev.future ? C.surface : C.card, border: `1px solid ${ev.future ? C.border : ev.dot + '55'}`, borderRadius: 8, padding: '10px 14px', flex: 1, boxShadow: ev.future ? 'none' : C.shadow }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 6 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: ev.future ? C.textSub : C.text, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {ev.label} <AgePill age={ev.age} color={ev.future ? C.textDim : C.purple} />
+                    </div>
+                    <div style={{ fontFamily: C.mono, fontSize: 11, color: ev.future ? C.textDim : ev.dot }}>{fmtDate(ev.date)}</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.textSub, marginTop: 3 }}>{ev.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+
+
+        {/* ══ CHARGES ═════════════════════════════════════════════════════════ */}
+        <Section title="Charges & Sentencing" icon="📋" C={C}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflowX: 'auto', boxShadow: C.shadow }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '28px 42px 1fr 100px 105px 105px', gap: 10, padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`, minWidth: 560 }}>
+              {['#','GRD','Charge / Statute','Structure','Minimum','Maximum'].map(h => (
+                <div key={h} style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1 }}>{h}</div>
+              ))}
             </div>
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', boxShadow: C.shadow }}>
-              <div style={{ fontFamily: C.mono, fontSize: 10, color: C.purple, letterSpacing: 1.5, marginBottom: 10 }}>PAROLE NUMBER — 345JW</div>
-              <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6, marginBottom: 10 }}>
-                Assigned by the PA Board of Probation &amp; Parole. Can be referenced when calling the Parole Board at <strong style={{ color: C.text }}>717-787-5100</strong> to inquire about case status. Victim family members may also register with the PA OVA for formal hearing notifications using this number.
+            {charges.map((ch, i) => (
+              <div key={ch.seq} style={{ display: 'grid', gridTemplateColumns: '28px 42px 1fr 100px 105px 105px', gap: 10, padding: '12px 16px', borderBottom: i < charges.length-1 ? `1px solid ${C.border}` : 'none', background: ch.role === 'ANCHOR' ? C.goldFaint : ch.role === 'CONSECUTIVE' ? C.redFaint : 'transparent', minWidth: 560 }}>
+                <div style={{ fontFamily: C.mono, fontSize: 12, color: C.textDim, paddingTop: 2 }}>{ch.seq}</div>
+                <div><span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 700, color: gradeC(ch.grade), padding: '2px 5px', border: `1px solid ${gradeC(ch.grade)}66`, borderRadius: 3 }}>{ch.grade}</span></div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{ch.label}</div>
+                  <div style={{ fontSize: 11, color: C.textSub }}>{ch.sub}</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, marginTop: 2 }}>{ch.statute}</div>
+                </div>
+                <div style={{ paddingTop: 2 }}><span style={{...wStyle(ch.roleColor)}}>{ch.role}</span></div>
+                <div style={{ fontFamily: C.mono, fontSize: 13, color: ch.role !== 'CONCURRENT' ? C.gold : C.textSub, fontWeight: ch.role !== 'CONCURRENT' ? 700 : 400 }}>{ch.minMo} months</div>
+                <div style={{ fontFamily: C.mono, fontSize: 13, color: ch.role !== 'CONCURRENT' ? C.gold : C.textSub, fontWeight: ch.role !== 'CONCURRENT' ? 700 : 400 }}>{ch.maxMo} months</div>
               </div>
-              <ExLink href={LINKS.paroleBoard} label="PA Parole Board · Case 345JW" icon="📋" color={C.purple} />
+            ))}
+            <div style={{ background: C.goldFaint, borderTop: `1px solid ${C.gold}44`, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontFamily: C.mono, fontSize: 11, color: C.gold, fontWeight: 700 }}>EFFECTIVE TOTAL (Seq 3 anchor + Seq 4 consecutive)</div>
+              <div style={{ display: 'flex', gap: 24 }}>
+                {[['60 mo','MIN · 5 yrs · age 30→35'],['144 mo','MAX · 12 yrs · age 30→42']].map(([v,s]) => (
+                  <div key={v} style={{ textAlign: 'center' }}>
+                    <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color: C.gold }}>{v}</div>
+                    <div style={{ fontSize: 10, color: C.textSub }}>{s}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </Section>
 
-        {/* ══ DOC INMATE PROFILE ══════════════════════════════════════════════ */}
-        {/* ══ DOC STATUS CHECKER ══════════════════════════════════════════ */}
-        <StatusCheckerWidget />
 
-                <Section title="PA DOC Inmate Profile"
- icon="🪪" accent={C.blue} C={C}>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr', gap: 16, alignItems: 'start' }}>
-            <div style={{ textAlign: 'center', ...(isMobile && { display: 'flex', flexDirection: 'column', alignItems: 'center' }) }}>
-              <div style={{ border: `2px solid ${C.blue}55`, borderRadius: 8, overflow: 'hidden', width: 130, background: C.surface, boxShadow: C.shadow }}>
-                <img src={MUGSHOT} alt="PA DOC official photo" style={{ width: '100%', display: 'block' }} />
-              </div>
-              <div style={{ fontFamily: C.mono, fontSize: 9, color: C.textDim, marginTop: 6, lineHeight: 1.4 }}>
-                PA DOC OFFICIAL PHOTO<br/>Taken: 6/1/2026 · 9:35:05 AM
-              </div>
-              <div style={{ marginTop: 6, fontFamily: C.mono, fontSize: 10, color: C.purple, fontWeight: 700 }}>← {daysMugshotToMin}d before min.</div>
-            </div>
-            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px', borderTop: `3px solid ${C.blue}`, boxShadow: C.shadow }}>
-              <div style={{ fontFamily: C.mono, fontSize: 10, color: C.blue, letterSpacing: 2, marginBottom: 12 }}>PA DEPARTMENT OF CORRECTIONS · INMATE RECORD</div>
-              <InfoRow label="Inmate Number"      value="PE1239"                      mono color={C.gold}   C={C} />
-              <InfoRow label="Parole Number"      value="345JW"                       mono color={C.purple} C={C} />
-              <InfoRow label="Commit Name"        value="Jacqueline Elizabeth Chattin"                      C={C} />
-              <InfoRow label="AKAs"               value="Jacqueline Chattin · Jacqueline E. Chattin"       C={C} />
-              <InfoRow label="Date of Birth"      value="02/21/1991"                  mono                  C={C} />
-              <InfoRow label="Age"                value="35"                          mono color={C.purple} C={C} />
-              <InfoRow label="Height"             value={`5' 7"`}                      mono                  C={C} />
-              <InfoRow label="Gender"             value="Female"                                            C={C} />
-              <InfoRow label="Citizenship"        value="United States of America"                          C={C} />
-              <InfoRow label="Current Location"   value="SCI Cambridge Springs"             color={C.blue}  C={C} />
-              <InfoRow label="Permanent Location" value="SCI Cambridge Springs"             color={C.blue}  C={C} />
-              <InfoRow label="Committing County"  value="Schuylkill"                                        C={C} />
-              <InfoRow label="Last Updated"       value="6/16/2026 · 4:00:31 AM"      mono color={C.green} C={C} />
-              <InfoRow label="Mugshot Date"       value="6/1/2026 · 9:35:05 AM"       mono color={C.purple} C={C} />
-              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <ExLink href={LINKS.docLocator} label="Live DOC Locator · PE1239" icon="🔍" color={C.blue} />
-                <ExLink href={LINKS.paDOC}      label="PA Dept. of Corrections"   icon="🏛️" color={C.blue} />
-              </div>
-            </div>
+
+        {/* ══ CASE BACKGROUND ════════════════════════════════════════════════ */}
+        <Section title="Case Background" icon="📖" C={C}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', lineHeight: 1.7, fontSize: 13, color: C.textSub, boxShadow: C.shadow }}>
+            <p style={{ marginTop: 0 }}>Chattin — who was under the influence of methamphetamine — broke into her grandmother's home in Pottsville and assaulted the victim with a deadly weapon, then stole her purse and cell phone, subsequently using the stolen access devices fraudulently. She also broke into a second residence and squatted there with an associate until located and arrested by Pottsville PD Officer Hamilton on January 18, 2021.</p>
+            <p>The assault triggered a significant deterioration of the victim's cognitive health. The victim's dementia worsened in the aftermath and she subsequently required placement in assisted living — a direct consequence of Jackie's actions.</p>
+            <p style={{ marginBottom: 0 }}>Court-ordered restitution of <strong style={{ color: C.gold }}>$1,100.00</strong> was assessed for stolen property. The crime was driven by meth addiction — her prior record includes multiple drug possession cases stretching back to 2009.</p>
           </div>
         </Section>
+
+{/* ══ PA SAVIN ══════════════════════════════════════════════════════ */}
+        <Section title="PA SAVIN — Automatic Custody Notifications" icon="🔔" accent={C.green} C={C}>
+          <div style={{ background: C.greenFaint, border: `2px solid ${C.green}55`, borderRadius: 10, padding: '18px 20px', marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: C.green, marginBottom: 8 }}>⭐ Most Important Action — Register for Automatic Alerts</div>
+            <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7, marginBottom: 14 }}>
+              <strong style={{ color: C.text }}>PA SAVIN (Statewide Automated Victim Information &amp; Notification)</strong> sends automatic phone, text, email, or app alerts the moment custody status changes — release, transfer, or escape. The service is <strong style={{ color: C.green }}>free, anonymous, and confidential</strong>. The subject will not know you registered.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 14 }}>
+              {[
+                { label: 'VINE Toll-Free',  value: '1-866-972-7284', icon: '📞' },
+                { label: 'Inmate # to use', value: 'PE1239',          icon: '🔢' },
+                { label: 'PIN needed',      value: '4-digit (you choose)', icon: '🔑' },
+                { label: 'Cost',            value: 'FREE',            icon: '✅' },
+              ].map(item => (
+                <div key={item.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{item.icon} {item.label}</div>
+                  <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.green }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <a href={LINKS.vineLink}  target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>🌐 VINELink.com ↗</a>
+              <a href={LINKS.paSavin}   target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>🏛️ PA.gov SAVIN ↗</a>
+              <a href={LINKS.paVictims} target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>⚖️ PA Victims Portal ↗</a>
+            </div>
+          </div>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', fontSize: 12, color: C.textSub, lineHeight: 1.8 }}>
+            <strong style={{ color: C.text }}>How to register (3 options):</strong><br />
+            📱 <strong>App:</strong> Download VINELink → Select Pennsylvania → Search PE1239 → Get Notified → add phone/email + 4-digit PIN<br />
+            📞 <strong>Phone:</strong> Call 1-866-972-7284 and follow prompts<br />
+            🌐 <strong>Web:</strong> vinelink.dhs.gov → Pennsylvania → PE1239 → Register
+          </div>
+        </Section>
+
+
+
+        {/* ══ PRIOR RECORD ════════════════════════════════════════════════════ */}
+        <Section title="Prior Criminal Record" icon="📁" C={C}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflowX: 'auto', boxShadow: C.shadow }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '60px 55px 1fr 140px', gap: 10, padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`, minWidth: 500 }}>
+              {['Year','Age','Charge / Docket','Outcome'].map(h => <div key={h} style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1 }}>{h}</div>)}
+            </div>
+            {priorCases.map((pc, i) => (
+              <div key={pc.docket} style={{ display: 'grid', gridTemplateColumns: '60px 55px 1fr 140px', gap: 10, padding: '12px 16px', borderBottom: i < priorCases.length-1 ? `1px solid ${C.border}` : 'none', background: pc.highlight ? C.redFaint : 'transparent', minWidth: 500 }}>
+                <div style={{ fontFamily: C.mono, fontSize: 12, color: pc.highlight ? C.red : C.gold, fontWeight: 700 }}>{pc.year}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <AgePill age={pc.arrestAge} color={pc.highlight ? C.red : C.purple} />
+                  {pc.sentAge !== pc.arrestAge && <AgePill age={pc.sentAge} color={C.textDim} />}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: pc.highlight ? C.red : C.text }}>{pc.charge}</div>
+                  <div style={{ marginTop: 4 }}><DocketLink docket={pc.docket} C={C} /></div>
+                </div>
+                <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.4 }}>{pc.outcome}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+            <StatCard label="Total Prior Cases" value="7"  sub="Before 2021 offense" accent={C.red}    C={C} />
+            <StatCard label="First Arrest Age"  value="18" sub="Corruption of Minors" accent={C.orange} C={C} />
+            <StatCard label="Sentence Age"      value="30" sub="Current case"          accent={C.gold}   C={C} />
+            <StatCard label="Years in System"   value="17" sub="Age 18 → age 35"      accent={C.red}    C={C} />
+          </div>
+        </Section>
+
+
+
+        {/* ══ FINANCIALS ══════════════════════════════════════════════════════ */}
+        <Section title="Financial Obligations" icon="💵" C={C}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12, marginBottom: 14 }}>
+            <StatCard label="Total Assessed"    value="$1,672.25" sub="Fines, fees, restitution"     accent={C.gold}   C={C} />
+            <StatCard label="Total Paid"        value="$1,251.13" sub="Via ACT 84 + direct payments" accent={C.green}  C={C} />
+            <StatCard label="Remaining Balance" value="$376.92"   sub="$339.92 victim restitution"   accent={C.red}    C={C} />
+            <StatCard label="Plan Overdue"      value="$5,990.22" sub="Consolidated older cases"     accent={C.orange} C={C} />
+          </div>
+          <Expand label="ACT 84 Payment History (DOC inmate wage deductions confirming incarceration)" icon="🏛️" C={C}>
+            <div style={{ maxHeight: 200, overflowY: 'auto', fontFamily: C.mono, fontSize: 11 }}>
+              {[['Aug 2021','$145.00'],['Sep 2021','$75.00'],['Oct 2021','$47.15'],['Nov 2021','$40.21'],['Dec 2021','$79.49'],['Jan 2022','$53.49'],['Feb 2022','$50.31'],['Mar 2022','$23.75'],['Apr 2022','$38.98'],['Jun 2022','$102.38'],['Aug 2022','$75.97'],['Sep 2022','$43.77'],['Oct 2022','$41.27'],['Nov 2022','$52.52'],['Dec 2022','$26.30'],['Jan 2023','$27.85'],['Feb 2023','$25.78'],['Mar 2023','$23.57'],['Apr 2023','$28.70'],['May 2023','$37.51'],['Jun 2023','$16.95'],['Jul 2023','$17.40'],['Aug 2023','$25.24'],['Sep 2023','$15.08'],['Oct 2023','$17.87'],['Nov 2023','$53.06'],['Dec 2023','$14.86'],['Feb 2024','$25.70'],['Mar 2024','$19.45'],['Apr 2024','$29.47'],['May 2024','$20.11'],['Jun 2024','$5.67'],['Jul 2024','$11.97'],['Aug 2024','$25.05'],['Sep 2024','$8.71'],['Oct 2024','$6.90'],['Nov 2024','$10.45'],['Feb 2025','$12.25'],['Mar 2025','$12.95'],['Apr 2025','$17.08'],['May 2025','$21.48'],['Jun 2025','$14.49'],['Jul 2025','$14.22'],['Aug 2025','$15.47'],['Sep 2025','$21.60'],['Oct 2025','$9.63'],['Nov 2025','$14.70'],['Dec 2025','$18.18'],['Jan 2026','$21.50'],['Feb 2026','$7.80'],['Mar 2026','$18.35'],['Apr 2026','$30.47'],['May 2026','$16.80 ← MOST RECENT']].map(([mo,amt]) => (
+                <div key={mo} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: `1px solid ${C.border}`, color: amt.includes('←') ? C.green : C.textSub }}>
+                  <span>{mo}</span><span>{amt}</span>
+                </div>
+              ))}
+            </div>
+          </Expand>
+        </Section>
+
+<Section title="PA Offense Grade Scale & Severity" icon="📏" accent={C.orange} C={C}>
+          {/* Visual severity bar */}
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 20px', marginBottom: 14, boxShadow: C.shadow }}>
+            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1.5, marginBottom: 14 }}>SEVERITY SCALE — PENNSYLVANIA CRIMINAL CODE (18 Pa.C.S.)</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'stretch' }}>
+              {GRADE_DATA.slice().reverse().map((g, i) => (
+                <div key={g.grade} style={{ flex: g.severity, background: g.color + '22', border: `2px solid ${g.color}`, borderRadius: 6, padding: '8px 6px', textAlign: 'center', position: 'relative', minWidth: 36 }}>
+                  <div style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 800, color: g.color }}>{g.grade}</div>
+                  {g.inCase.length > 0 && <div style={{ position: 'absolute', top: -8, right: -4, width: 14, height: 14, borderRadius: '50%', background: g.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 8, color: '#fff', fontWeight: 800 }}>★</span></div>}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: C.textDim, marginBottom: 4 }}>
+              <span>← LEAST SEVERE</span><span>MOST SEVERE →</span>
+            </div>
+            <div style={{ fontSize: 11, color: C.textSub }}>★ = Present in Jackie's case</div>
+          </div>
+
+          {/* Grade table */}
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', overflowX: 'auto', boxShadow: C.shadow }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '55px 1fr 90px 90px 1fr', gap: 10, padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`, minWidth: 500 }}>
+              {['Grade','Classification','Max Prison','Max Fine','Jackie\'s Charges'].map(h => (
+                <div key={h} style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1 }}>{h}</div>
+              ))}
+            </div>
+            {GRADE_DATA.map((g, i) => (
+              <div key={g.grade} style={{ display: 'grid', gridTemplateColumns: '55px 1fr 90px 90px 1fr', gap: 10, padding: '11px 16px', borderBottom: i < GRADE_DATA.length-1 ? `1px solid ${C.border}` : 'none', background: g.inCase.length > 0 ? g.color + '0F' : 'transparent', minWidth: 500 }}>
+                <div><span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 800, color: g.color, padding: '2px 6px', border: `1.5px solid ${g.color}`, borderRadius: 4 }}>{g.grade}</span></div>
+                <div style={{ fontSize: 12, color: C.text, fontWeight: g.inCase.length > 0 ? 600 : 400 }}>{g.label}</div>
+                <div style={{ fontFamily: C.mono, fontSize: 12, color: g.inCase.length > 0 ? C.text : C.textSub, fontWeight: g.inCase.length > 0 ? 700 : 400 }}>{g.maxPrison}</div>
+                <div style={{ fontFamily: C.mono, fontSize: 12, color: C.textSub }}>{g.maxFine}</div>
+                <div style={{ fontSize: 11 }}>
+                  {g.inCase.length > 0 ? g.inCase.map(ch => <div key={ch} style={{ color: g.color, fontWeight: 600 }}>★ {ch}</div>) : <span style={{ color: C.textDim }}>—</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Sentencing guidelines explainer */}
+          <Expand label="How Grade Interacts with Sentencing — The PA Guidelines Matrix" icon="📊" C={C} accent={C.orange}>
+            <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.8 }}>
+              <p style={{ marginTop: 0 }}>In Pennsylvania, the offense grade defines the <strong style={{ color: C.text }}>statutory maximum</strong> (the ceiling the judge can never exceed), but the actual sentence within that ceiling is determined by the <strong style={{ color: C.text }}>PA Sentencing Guidelines Matrix</strong> — a grid where two scores intersect:</p>
+              <p><strong style={{ color: C.orange }}>Offense Gravity Score (OGS)</strong> — a number from 1–14 assigned to each specific offense, representing how serious that crime is. Aggravated Assault with a deadly weapon (F2) carries an OGS of around 9–10. Criminal Trespass (F2) is around 6–7. These are fixed per statute.</p>
+              <p><strong style={{ color: C.orange }}>Prior Record Score (PRS)</strong> — 0 through 5 (or RFEL for Repeat Felony Offenders). Calculated from prior convictions. With 7+ prior cases including prior felonies, Jackie's PRS is almost certainly at RFEL status — the maximum tier — which substantially shifts the recommended range upward on the matrix.</p>
+              <p>Where OGS and PRS intersect on the matrix gives the judge a <strong style={{ color: C.text }}>standard guideline range</strong> (a min-max band), a <strong style={{ color: C.text }}>mitigated range</strong> (below standard), and an <strong style={{ color: C.text }}>aggravated range</strong> (above standard). Jackie's sentences (30–72 months on the F2s, 30–72 on the F3) reflect a high OGS + maximum PRS pushing into the aggravated range — consistent with the violent nature of the offense and her extensive history.</p>
+              <p style={{ marginBottom: 0 }}>The <strong style={{ color: C.text }}>consecutive structure</strong> (Seq 4 running after Seq 3 rather than at the same time) is the mechanism that stacks the sentences — taking the total from 30–72 months to 60–144 months. This is a judge's discretionary tool to increase total imprisonment beyond what any single charge would allow.</p>
+            </div>
+          </Expand>
+        </Section>
+
+
 
         {/* ══ AGE PROFILE ═════════════════════════════════════════════════════ */}
         <Section title="Subject Age Profile" icon="🎂" accent={C.purple} C={C}>
@@ -778,298 +1063,7 @@ function CaseDashboard() {
           </div>
         </Section>
 
-        {/* ══ SENTENCE STATUS ═════════════════════════════════════════════════ */}
-        <Section title="Sentence Status" icon="⏱️" C={C}>
-          <div style={{ background: C.greenFaint, border: `1px solid ${C.green}55`, borderRadius: 8, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 28 }}>✅</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: C.green }}>MINIMUM SENTENCE DATE REACHED</div>
-              <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>60-month minimum reached <strong style={{ color: C.text }}>June 8, 2026</strong> at age <strong style={{ color: C.purple }}>35</strong>. Now <strong style={{ color: C.green }}>{daysPastMin} days</strong> past minimum. Parole #345JW active.</div>
-            </div>
-          </div>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', marginBottom: 16, boxShadow: C.shadow }}>
-            {[
-              { label: 'MINIMUM SERVED (60 months)', pct: 100, color: C.green, done: true, left: 'Jun 8, 2021 (age 30)', right: 'Jun 8, 2026 (age 35) ← REACHED' },
-              { label: `MAXIMUM SERVED (144 months)`, pct: parseFloat(pctMax), color: C.gold, done: false, left: 'Jun 8, 2021 (age 30)', right: 'Jun 8, 2033 (age 42)', pctLabel: pctMax + '%' },
-            ].map((bar, i) => (
-              <div key={i} style={{ marginBottom: i === 0 ? 16 : 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontFamily: C.mono, fontSize: 11, color: C.textSub }}>{bar.label}</span>
-                  <span style={{ fontFamily: C.mono, fontSize: 11, color: bar.color, fontWeight: 700 }}>{bar.done ? '100% ✓' : bar.pctLabel}</span>
-                </div>
-                <ProgressBar pct={bar.pct} color={bar.color} height={10} C={C} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                  <span style={{ fontSize: 10, color: C.textDim }}>{bar.left}</span>
-                  <span style={{ fontSize: 10, color: C.textDim }}>{bar.right}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 12 }}>
-            <StatCard label="Days Since Offense" value={daysOffense.toLocaleString()} sub="Age 29 → 35" accent={C.red} icon="🔴" C={C} />
-            <StatCard label="Days in Custody"    value={daysArrest.toLocaleString()}  sub="Since Jan 18, 2021" accent={C.orange} icon="🔒" C={C} />
-            <StatCard label="Days Past Minimum"  value={daysPastMin} sub="Parole-eligible" accent={C.green} icon="✅" C={C} />
-            <StatCard label="Days to Max"        value={daysToMax.toLocaleString()} sub="Jun 2033 · age 42" accent={C.blue} icon="📅" C={C} />
-            <StatCard label="Min Sentence"       value="60 mo" sub="5 yrs · age 30→35" accent={C.gold} icon="⚖️" C={C} />
-            <StatCard label="Max Sentence"       value="144 mo" sub="12 yrs · age 30→42" accent={C.gold} icon="⚖️" C={C} />
-            <StatCard label="Max % Served"       value={`${pctMax}%`} sub="of 144-month max" accent={C.gold} icon="📊" C={C} />
-            <StatCard label="Est. Cost (DOC)"    value={`$${(estimatedCost/1000).toFixed(0)}K`} sub="~$47K/yr PA avg" accent={C.textSub} icon="💰" C={C} />
-          </div>
-        </Section>
 
-        {/* ══ CHARGES ═════════════════════════════════════════════════════════ */}
-        <Section title="Charges & Sentencing" icon="📋" C={C}>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflowX: 'auto', boxShadow: C.shadow }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '28px 42px 1fr 100px 105px 105px', gap: 10, padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`, minWidth: 560 }}>
-              {['#','GRD','Charge / Statute','Structure','Minimum','Maximum'].map(h => (
-                <div key={h} style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1 }}>{h}</div>
-              ))}
-            </div>
-            {charges.map((ch, i) => (
-              <div key={ch.seq} style={{ display: 'grid', gridTemplateColumns: '28px 42px 1fr 100px 105px 105px', gap: 10, padding: '12px 16px', borderBottom: i < charges.length-1 ? `1px solid ${C.border}` : 'none', background: ch.role === 'ANCHOR' ? C.goldFaint : ch.role === 'CONSECUTIVE' ? C.redFaint : 'transparent', minWidth: 560 }}>
-                <div style={{ fontFamily: C.mono, fontSize: 12, color: C.textDim, paddingTop: 2 }}>{ch.seq}</div>
-                <div><span style={{ fontFamily: C.mono, fontSize: 10, fontWeight: 700, color: gradeC(ch.grade), padding: '2px 5px', border: `1px solid ${gradeC(ch.grade)}66`, borderRadius: 3 }}>{ch.grade}</span></div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{ch.label}</div>
-                  <div style={{ fontSize: 11, color: C.textSub }}>{ch.sub}</div>
-                  <div style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, marginTop: 2 }}>{ch.statute}</div>
-                </div>
-                <div style={{ paddingTop: 2 }}><span style={{...wStyle(ch.roleColor)}}>{ch.role}</span></div>
-                <div style={{ fontFamily: C.mono, fontSize: 13, color: ch.role !== 'CONCURRENT' ? C.gold : C.textSub, fontWeight: ch.role !== 'CONCURRENT' ? 700 : 400 }}>{ch.minMo} months</div>
-                <div style={{ fontFamily: C.mono, fontSize: 13, color: ch.role !== 'CONCURRENT' ? C.gold : C.textSub, fontWeight: ch.role !== 'CONCURRENT' ? 700 : 400 }}>{ch.maxMo} months</div>
-              </div>
-            ))}
-            <div style={{ background: C.goldFaint, borderTop: `1px solid ${C.gold}44`, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontFamily: C.mono, fontSize: 11, color: C.gold, fontWeight: 700 }}>EFFECTIVE TOTAL (Seq 3 anchor + Seq 4 consecutive)</div>
-              <div style={{ display: 'flex', gap: 24 }}>
-                {[['60 mo','MIN · 5 yrs · age 30→35'],['144 mo','MAX · 12 yrs · age 30→42']].map(([v,s]) => (
-                  <div key={v} style={{ textAlign: 'center' }}>
-                    <div style={{ fontFamily: C.mono, fontSize: 20, fontWeight: 700, color: C.gold }}>{v}</div>
-                    <div style={{ fontSize: 10, color: C.textSub }}>{s}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Section>
-
-        {/* ══ OFFENSE GRADE SCALE ══════════════════════════════════════════════ */}
-        {/* ══ PA SAVIN ══════════════════════════════════════════════════════ */}
-        <Section title="PA SAVIN — Automatic Custody Notifications" icon="🔔" accent={C.green} C={C}>
-          <div style={{ background: C.greenFaint, border: `2px solid ${C.green}55`, borderRadius: 10, padding: '18px 20px', marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: C.green, marginBottom: 8 }}>⭐ Most Important Action — Register for Automatic Alerts</div>
-            <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7, marginBottom: 14 }}>
-              <strong style={{ color: C.text }}>PA SAVIN (Statewide Automated Victim Information &amp; Notification)</strong> sends automatic phone, text, email, or app alerts the moment custody status changes — release, transfer, or escape. The service is <strong style={{ color: C.green }}>free, anonymous, and confidential</strong>. The subject will not know you registered.
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 14 }}>
-              {[
-                { label: 'VINE Toll-Free',  value: '1-866-972-7284', icon: '📞' },
-                { label: 'Inmate # to use', value: 'PE1239',          icon: '🔢' },
-                { label: 'PIN needed',      value: '4-digit (you choose)', icon: '🔑' },
-                { label: 'Cost',            value: 'FREE',            icon: '✅' },
-              ].map(item => (
-                <div key={item.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px' }}>
-                  <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{item.icon} {item.label}</div>
-                  <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.green }}>{item.value}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <a href={LINKS.vineLink}  target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>🌐 VINELink.com ↗</a>
-              <a href={LINKS.paSavin}   target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>🏛️ PA.gov SAVIN ↗</a>
-              <a href={LINKS.paVictims} target="_blank" rel="noopener noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:6, color:C.green, textDecoration:'none', fontSize:12, padding:'5px 10px', border:`1px solid ${C.green}55`, borderRadius:6, background:C.greenFaint, fontFamily:C.mono }}>⚖️ PA Victims Portal ↗</a>
-            </div>
-          </div>
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '14px 16px', fontSize: 12, color: C.textSub, lineHeight: 1.8 }}>
-            <strong style={{ color: C.text }}>How to register (3 options):</strong><br />
-            📱 <strong>App:</strong> Download VINELink → Select Pennsylvania → Search PE1239 → Get Notified → add phone/email + 4-digit PIN<br />
-            📞 <strong>Phone:</strong> Call 1-866-972-7284 and follow prompts<br />
-            🌐 <strong>Web:</strong> vinelink.dhs.gov → Pennsylvania → PE1239 → Register
-          </div>
-        </Section>
-
-        <Section title="PA Offense Grade Scale & Severity" icon="📏" accent={C.orange} C={C}>
-          {/* Visual severity bar */}
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 20px', marginBottom: 14, boxShadow: C.shadow }}>
-            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1.5, marginBottom: 14 }}>SEVERITY SCALE — PENNSYLVANIA CRIMINAL CODE (18 Pa.C.S.)</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'stretch' }}>
-              {GRADE_DATA.slice().reverse().map((g, i) => (
-                <div key={g.grade} style={{ flex: g.severity, background: g.color + '22', border: `2px solid ${g.color}`, borderRadius: 6, padding: '8px 6px', textAlign: 'center', position: 'relative', minWidth: 36 }}>
-                  <div style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 800, color: g.color }}>{g.grade}</div>
-                  {g.inCase.length > 0 && <div style={{ position: 'absolute', top: -8, right: -4, width: 14, height: 14, borderRadius: '50%', background: g.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 8, color: '#fff', fontWeight: 800 }}>★</span></div>}
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: C.textDim, marginBottom: 4 }}>
-              <span>← LEAST SEVERE</span><span>MOST SEVERE →</span>
-            </div>
-            <div style={{ fontSize: 11, color: C.textSub }}>★ = Present in Jackie's case</div>
-          </div>
-
-          {/* Grade table */}
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', overflowX: 'auto', boxShadow: C.shadow }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '55px 1fr 90px 90px 1fr', gap: 10, padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`, minWidth: 500 }}>
-              {['Grade','Classification','Max Prison','Max Fine','Jackie\'s Charges'].map(h => (
-                <div key={h} style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1 }}>{h}</div>
-              ))}
-            </div>
-            {GRADE_DATA.map((g, i) => (
-              <div key={g.grade} style={{ display: 'grid', gridTemplateColumns: '55px 1fr 90px 90px 1fr', gap: 10, padding: '11px 16px', borderBottom: i < GRADE_DATA.length-1 ? `1px solid ${C.border}` : 'none', background: g.inCase.length > 0 ? g.color + '0F' : 'transparent', minWidth: 500 }}>
-                <div><span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 800, color: g.color, padding: '2px 6px', border: `1.5px solid ${g.color}`, borderRadius: 4 }}>{g.grade}</span></div>
-                <div style={{ fontSize: 12, color: C.text, fontWeight: g.inCase.length > 0 ? 600 : 400 }}>{g.label}</div>
-                <div style={{ fontFamily: C.mono, fontSize: 12, color: g.inCase.length > 0 ? C.text : C.textSub, fontWeight: g.inCase.length > 0 ? 700 : 400 }}>{g.maxPrison}</div>
-                <div style={{ fontFamily: C.mono, fontSize: 12, color: C.textSub }}>{g.maxFine}</div>
-                <div style={{ fontSize: 11 }}>
-                  {g.inCase.length > 0 ? g.inCase.map(ch => <div key={ch} style={{ color: g.color, fontWeight: 600 }}>★ {ch}</div>) : <span style={{ color: C.textDim }}>—</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Sentencing guidelines explainer */}
-          <Expand label="How Grade Interacts with Sentencing — The PA Guidelines Matrix" icon="📊" C={C} accent={C.orange}>
-            <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.8 }}>
-              <p style={{ marginTop: 0 }}>In Pennsylvania, the offense grade defines the <strong style={{ color: C.text }}>statutory maximum</strong> (the ceiling the judge can never exceed), but the actual sentence within that ceiling is determined by the <strong style={{ color: C.text }}>PA Sentencing Guidelines Matrix</strong> — a grid where two scores intersect:</p>
-              <p><strong style={{ color: C.orange }}>Offense Gravity Score (OGS)</strong> — a number from 1–14 assigned to each specific offense, representing how serious that crime is. Aggravated Assault with a deadly weapon (F2) carries an OGS of around 9–10. Criminal Trespass (F2) is around 6–7. These are fixed per statute.</p>
-              <p><strong style={{ color: C.orange }}>Prior Record Score (PRS)</strong> — 0 through 5 (or RFEL for Repeat Felony Offenders). Calculated from prior convictions. With 7+ prior cases including prior felonies, Jackie's PRS is almost certainly at RFEL status — the maximum tier — which substantially shifts the recommended range upward on the matrix.</p>
-              <p>Where OGS and PRS intersect on the matrix gives the judge a <strong style={{ color: C.text }}>standard guideline range</strong> (a min-max band), a <strong style={{ color: C.text }}>mitigated range</strong> (below standard), and an <strong style={{ color: C.text }}>aggravated range</strong> (above standard). Jackie's sentences (30–72 months on the F2s, 30–72 on the F3) reflect a high OGS + maximum PRS pushing into the aggravated range — consistent with the violent nature of the offense and her extensive history.</p>
-              <p style={{ marginBottom: 0 }}>The <strong style={{ color: C.text }}>consecutive structure</strong> (Seq 4 running after Seq 3 rather than at the same time) is the mechanism that stacks the sentences — taking the total from 30–72 months to 60–144 months. This is a judge's discretionary tool to increase total imprisonment beyond what any single charge would allow.</p>
-            </div>
-          </Expand>
-        </Section>
-
-        {/* ══ TIMELINE ════════════════════════════════════════════════════════ */}
-        <Section title="Case Timeline" icon="📅" C={C}>
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', left: 22, top: 24, bottom: 24, width: 2, background: `linear-gradient(to bottom, ${C.red}, ${C.gold}, ${C.purple}, ${C.green}, ${C.textDim})` }} />
-            {tlEvents.map((ev, i) => (
-              <div key={i} style={{ display: 'flex', gap: 16, marginBottom: 12, paddingLeft: 10 }}>
-                <div style={{ position: 'relative', zIndex: 1, flexShrink: 0 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: ev.future ? C.surface : ev.dot, border: `2px solid ${ev.dot}`, marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: !ev.future ? `0 0 8px ${ev.dot}55` : 'none' }}>
-                    {!ev.future ? <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} /> : <div style={{ width: 7, height: 7, borderRadius: '50%', background: ev.dot, opacity: 0.4 }} />}
-                  </div>
-                </div>
-                <div style={{ background: ev.future ? C.surface : C.card, border: `1px solid ${ev.future ? C.border : ev.dot + '55'}`, borderRadius: 8, padding: '10px 14px', flex: 1, boxShadow: ev.future ? 'none' : C.shadow }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 6 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: ev.future ? C.textSub : C.text, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {ev.label} <AgePill age={ev.age} color={ev.future ? C.textDim : C.purple} />
-                    </div>
-                    <div style={{ fontFamily: C.mono, fontSize: 11, color: ev.future ? C.textDim : ev.dot }}>{fmtDate(ev.date)}</div>
-                  </div>
-                  <div style={{ fontSize: 12, color: C.textSub, marginTop: 3 }}>{ev.sub}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        {/* ══ PAROLE PROJECTIONS ══════════════════════════════════════════════ */}
-        <Section title="Parole Release Projections" icon="📊" C={C}>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', marginBottom: 14, boxShadow: C.shadow }}>
-            {[
-              { label: 'At Minimum (Jun 2026)',  pct: 20, color: C.red,    note: 'Low — violent offense + prior history at first hearing', days: daysPastMin, past: true, age: 35 },
-              { label: 'Optimistic (Jun 2027)',  pct: 35, color: C.orange, note: 'Possible with strong program participation', days: daysToOpt, age: 36 },
-              { label: 'Most Likely (Late 2028)',pct: 60, color: C.gold,   note: 'Probable range with clean institutional record', days: daysToLikely, age: 37 },
-              { label: 'Pessimistic (Mar 2031)', pct: 85, color: C.green,  note: 'Board likely relents after multiple hearings', days: daysToPess, age: 40 },
-              { label: 'Maximum (Jun 2033)',     pct: 100, color: C.blue,  note: 'Mandatory release — legally cannot be held further', days: daysToMax, age: 42 },
-            ].map(sc => (
-              <div key={sc.label} style={{ marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: C.text, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {sc.label} <AgePill age={sc.age} color={sc.color} />
-                  </span>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    {sc.past ? <span style={{ fontFamily: C.mono, fontSize: 10, color: C.green }}>✓ PASSED ({daysPastMin}d ago)</span> : <span style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim }}>{sc.days.toLocaleString()}d away</span>}
-                    <span style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: sc.color }}>{sc.pct}%</span>
-                  </div>
-                </div>
-                <ProgressBar pct={sc.pct} color={sc.color} height={6} C={C} />
-                <div style={{ fontSize: 11, color: C.textSub, marginTop: 3 }}>{sc.note}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ background: C.purpleFaint, border: `1px solid ${C.purple}44`, borderRadius: 8, padding: '12px 16px' }}>
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: C.purple }}>⚠️ Updated: Active Parole Processing Underway</div>
-            <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6 }}>Parole #345JW assigned + June 1 mugshot update shifts the near-term picture. She is actively in parole processing — a hearing may have already occurred or be imminent. The most likely near-term outcome is either a conditional grant or a denial with a future hearing date. ACT 84 payments through May 2026 confirm she remained incarcerated through last month.</div>
-          </div>
-        </Section>
-
-        {/* ══ PAROLE FACTORS ══════════════════════════════════════════════════ */}
-        <Section title="Parole Board Factor Analysis" icon="⚖️" C={C}>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.red, letterSpacing: 1.5, marginBottom: 10 }}>▼ FACTORS WEIGHING AGAINST PAROLE</div>
-            {against.map(f => (
-              <Expand key={f.label} label={f.label} icon={<span style={{...wStyle(f.c)}}>{f.w}</span>} accent={f.c} C={C}>
-                <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7 }}>{f.detail}</div>
-              </Expand>
-            ))}
-          </div>
-          <div style={{ marginTop: 18 }}>
-            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.green, letterSpacing: 1.5, marginBottom: 10 }}>▲ FACTORS WEIGHING IN FAVOR OF PAROLE</div>
-            {inFavor.map(f => (
-              <Expand key={f.label} label={f.label} icon={<span style={{...wStyle(f.c)}}>{f.w}</span>} accent={f.c} C={C}>
-                <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7 }}>{f.detail}</div>
-              </Expand>
-            ))}
-          </div>
-        </Section>
-
-        {/* ══ PRIOR RECORD ════════════════════════════════════════════════════ */}
-        <Section title="Prior Criminal Record" icon="📁" C={C}>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflowX: 'auto', boxShadow: C.shadow }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '60px 55px 1fr 140px', gap: 10, padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`, minWidth: 500 }}>
-              {['Year','Age','Charge / Docket','Outcome'].map(h => <div key={h} style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1 }}>{h}</div>)}
-            </div>
-            {priorCases.map((pc, i) => (
-              <div key={pc.docket} style={{ display: 'grid', gridTemplateColumns: '60px 55px 1fr 140px', gap: 10, padding: '12px 16px', borderBottom: i < priorCases.length-1 ? `1px solid ${C.border}` : 'none', background: pc.highlight ? C.redFaint : 'transparent', minWidth: 500 }}>
-                <div style={{ fontFamily: C.mono, fontSize: 12, color: pc.highlight ? C.red : C.gold, fontWeight: 700 }}>{pc.year}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <AgePill age={pc.arrestAge} color={pc.highlight ? C.red : C.purple} />
-                  {pc.sentAge !== pc.arrestAge && <AgePill age={pc.sentAge} color={C.textDim} />}
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: pc.highlight ? C.red : C.text }}>{pc.charge}</div>
-                  <div style={{ marginTop: 4 }}><DocketLink docket={pc.docket} C={C} /></div>
-                </div>
-                <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.4 }}>{pc.outcome}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
-            <StatCard label="Total Prior Cases" value="7"  sub="Before 2021 offense" accent={C.red}    C={C} />
-            <StatCard label="First Arrest Age"  value="18" sub="Corruption of Minors" accent={C.orange} C={C} />
-            <StatCard label="Sentence Age"      value="30" sub="Current case"          accent={C.gold}   C={C} />
-            <StatCard label="Years in System"   value="17" sub="Age 18 → age 35"      accent={C.red}    C={C} />
-          </div>
-        </Section>
-
-        {/* ══ FINANCIALS ══════════════════════════════════════════════════════ */}
-        <Section title="Financial Obligations" icon="💵" C={C}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12, marginBottom: 14 }}>
-            <StatCard label="Total Assessed"    value="$1,672.25" sub="Fines, fees, restitution"     accent={C.gold}   C={C} />
-            <StatCard label="Total Paid"        value="$1,251.13" sub="Via ACT 84 + direct payments" accent={C.green}  C={C} />
-            <StatCard label="Remaining Balance" value="$376.92"   sub="$339.92 victim restitution"   accent={C.red}    C={C} />
-            <StatCard label="Plan Overdue"      value="$5,990.22" sub="Consolidated older cases"     accent={C.orange} C={C} />
-          </div>
-          <Expand label="ACT 84 Payment History (DOC inmate wage deductions confirming incarceration)" icon="🏛️" C={C}>
-            <div style={{ maxHeight: 200, overflowY: 'auto', fontFamily: C.mono, fontSize: 11 }}>
-              {[['Aug 2021','$145.00'],['Sep 2021','$75.00'],['Oct 2021','$47.15'],['Nov 2021','$40.21'],['Dec 2021','$79.49'],['Jan 2022','$53.49'],['Feb 2022','$50.31'],['Mar 2022','$23.75'],['Apr 2022','$38.98'],['Jun 2022','$102.38'],['Aug 2022','$75.97'],['Sep 2022','$43.77'],['Oct 2022','$41.27'],['Nov 2022','$52.52'],['Dec 2022','$26.30'],['Jan 2023','$27.85'],['Feb 2023','$25.78'],['Mar 2023','$23.57'],['Apr 2023','$28.70'],['May 2023','$37.51'],['Jun 2023','$16.95'],['Jul 2023','$17.40'],['Aug 2023','$25.24'],['Sep 2023','$15.08'],['Oct 2023','$17.87'],['Nov 2023','$53.06'],['Dec 2023','$14.86'],['Feb 2024','$25.70'],['Mar 2024','$19.45'],['Apr 2024','$29.47'],['May 2024','$20.11'],['Jun 2024','$5.67'],['Jul 2024','$11.97'],['Aug 2024','$25.05'],['Sep 2024','$8.71'],['Oct 2024','$6.90'],['Nov 2024','$10.45'],['Feb 2025','$12.25'],['Mar 2025','$12.95'],['Apr 2025','$17.08'],['May 2025','$21.48'],['Jun 2025','$14.49'],['Jul 2025','$14.22'],['Aug 2025','$15.47'],['Sep 2025','$21.60'],['Oct 2025','$9.63'],['Nov 2025','$14.70'],['Dec 2025','$18.18'],['Jan 2026','$21.50'],['Feb 2026','$7.80'],['Mar 2026','$18.35'],['Apr 2026','$30.47'],['May 2026','$16.80 ← MOST RECENT']].map(([mo,amt]) => (
-                <div key={mo} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: `1px solid ${C.border}`, color: amt.includes('←') ? C.green : C.textSub }}>
-                  <span>{mo}</span><span>{amt}</span>
-                </div>
-              ))}
-            </div>
-          </Expand>
-        </Section>
-
-        {/* ══ CASE BACKGROUND ════════════════════════════════════════════════ */}
-        <Section title="Case Background" icon="📖" C={C}>
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', lineHeight: 1.7, fontSize: 13, color: C.textSub, boxShadow: C.shadow }}>
-            <p style={{ marginTop: 0 }}>Chattin — who was under the influence of methamphetamine — broke into her grandmother's home in Pottsville and assaulted the victim with a deadly weapon, then stole her purse and cell phone, subsequently using the stolen access devices fraudulently. She also broke into a second residence and squatted there with an associate until located and arrested by Pottsville PD Officer Hamilton on January 18, 2021.</p>
-            <p>The assault triggered a significant deterioration of the victim's cognitive health. The victim's dementia worsened in the aftermath and she subsequently required placement in assisted living — a direct consequence of Jackie's actions.</p>
-            <p style={{ marginBottom: 0 }}>Court-ordered restitution of <strong style={{ color: C.gold }}>$1,100.00</strong> was assessed for stolen property. The crime was driven by meth addiction — her prior record includes multiple drug possession cases stretching back to 2009.</p>
-          </div>
-        </Section>
 
         {/* ══ BY THE NUMBERS ══════════════════════════════════════════════════ */}
         <Section title="By the Numbers" icon="🔢" C={C}>
@@ -1086,6 +1080,8 @@ function CaseDashboard() {
             <StatCard label="Unique Judges"   value="4"      sub="Baldwin, Dolbin, Domalakes, Hale" accent={C.blue} C={C} />
           </div>
         </Section>
+
+
 
         {/* ══ RESOURCES ═══════════════════════════════════════════════════════ */}
         <Section title="Official Resources & Source Documents" icon="🔗" accent={C.blue} C={C}>
