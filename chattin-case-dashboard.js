@@ -479,6 +479,7 @@ function CaseDashboard() {
       try {
         localStorage.setItem('chattin_owner_mode', next ? '1' : '0');
       } catch {}
+      if (!next) setConfigOpen(false); // close config panel when hiding owner mode
       return next;
     });
   };
@@ -729,7 +730,7 @@ function CaseDashboard() {
         borderRadius: 4,
         textDecoration: configOpen ? 'none' : 'underline'
       }
-    }, "⚙ ", configOpen ? 'close' : 'setup')), configOpen && /*#__PURE__*/React.createElement("div", {
+    }, "⚙ ", configOpen ? 'close' : 'setup')), ownerMode && configOpen && /*#__PURE__*/React.createElement("div", {
       style: {
         background: C.surface,
         border: `1px solid ${C.border}`,

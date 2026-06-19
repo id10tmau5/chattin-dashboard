@@ -231,6 +231,7 @@ function CaseDashboard() {
     setOwnerMode(prev => {
       const next = !prev;
       try { localStorage.setItem('chattin_owner_mode', next ? '1' : '0'); } catch {}
+      if (!next) setConfigOpen(false);   // close config panel when hiding owner mode
       return next;
     });
   };
@@ -384,7 +385,7 @@ function CaseDashboard() {
           )}
         </div>
 
-        {configOpen && (
+        {ownerMode && configOpen && (
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'14px 16px', marginBottom:14 }}>
             <div style={{ fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:1.5, marginBottom:12 }}>CONFIGURATION</div>
             <div style={{ marginBottom:14 }}>
