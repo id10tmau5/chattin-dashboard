@@ -1,7 +1,8 @@
 const {
   useState,
   useEffect,
-  useMemo
+  useMemo,
+  useRef
 } = React;
 
 // ─── Theme Definitions ─────────────────────────────────────────────────────────
@@ -455,7 +456,59 @@ function CaseDashboard() {
   const [apiKeyMsg, setApiKeyMsg] = useState(null);
   const [checkCooldown, setCheckCooldown] = useState(0); // seconds remaining before Check for Updates re-enables
   const [buildStatus, setBuildStatus] = useState('idle'); // idle|loading|ok|err
-  const [buildMsg2, setBuildMsg2] = useState(null); // feedback for the footer rebuild button
+  const [buildMsg2, setBuildMsg2] = useState(null);
+
+  // ── Owner mode (hidden controls revealer) ──────────────────────────────────
+  // Desktop: Ctrl+Shift+U toggles. Mobile: 5 rapid taps on the footer source line.
+  // This is UI decluttering only — NOT a security boundary. The real protection
+  // is that the access token lives only in the owner's browser localStorage.
+  const [ownerMode, setOwnerMode] = useState(() => {
+    try {
+      return localStorage.getItem('chattin_owner_mode') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const tapState = useRef({
+    count: 0,
+    last: 0
+  });
+  const toggleOwnerMode = () => {
+    setOwnerMode(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('chattin_owner_mode', next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  };
+  useEffect(() => {
+    const onKey = e => {
+      // Ctrl+Shift+U  (or Cmd+Shift+U on Mac)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'U' || e.key === 'u')) {
+        e.preventDefault();
+        toggleOwnerMode();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Mobile reveal: 5 rapid taps (within 2s) on the footer source line
+  const handleSecretTap = () => {
+    const now = Date.now();
+    const s = tapState.current;
+    if (now - s.last < 600) {
+      s.count += 1;
+    } else {
+      s.count = 1;
+    }
+    s.last = now;
+    if (s.count >= 5) {
+      s.count = 0;
+      toggleOwnerMode();
+    }
+  }; // feedback for the footer rebuild button
 
   const getGhToken = () => {
     try {
@@ -662,7 +715,7 @@ function CaseDashboard() {
         textTransform: 'uppercase',
         color: C.green
       }
-    }, "DOC Status Checker")), /*#__PURE__*/React.createElement("button", {
+    }, "DOC Status Checker")), ownerMode && /*#__PURE__*/React.createElement("button", {
       onClick: () => setConfigOpen(o => !o),
       style: {
         background: 'none',
@@ -827,7 +880,7 @@ function CaseDashboard() {
         opacity: checkCooldown > 0 ? 0.55 : 1,
         transition: 'all 0.3s'
       }
-    }, loadStatus === 'loading' ? '⏳ Loading…' : loadStatus === 'ok' ? '✓ Refreshed' : checkCooldown > 0 ? `⏳ ${checkCooldown}s` : '🔄 Check for Updates'), /*#__PURE__*/React.createElement("button", {
+    }, loadStatus === 'loading' ? '⏳ Loading…' : loadStatus === 'ok' ? '✓ Refreshed' : checkCooldown > 0 ? `⏳ ${checkCooldown}s` : '🔄 Check for Updates'), ownerMode && /*#__PURE__*/React.createElement("button", {
       onClick: handleRunCheck,
       disabled: triggerStatus === 'loading',
       style: {
@@ -3466,7 +3519,13 @@ function CaseDashboard() {
       color: C.textDim,
       lineHeight: 1.8
     }
-  }, /*#__PURE__*/React.createElement("div", null, "SOURCE: PA UJS Portal · PA DOC Inmate Locator · CP-54-CR-0000435-2021 · Inmate #PE1239 · Printed June 16, 2026"), /*#__PURE__*/React.createElement("div", null, "All data is public record. Not a substitute for an official PA State Police criminal history background check."), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: handleSecretTap,
+    style: {
+      cursor: 'default',
+      userSelect: 'none'
+    }
+  }, "SOURCE: PA UJS Portal · PA DOC Inmate Locator · CP-54-CR-0000435-2021 · Inmate #PE1239 · Printed June 16, 2026"), /*#__PURE__*/React.createElement("div", null, "All data is public record. Not a substitute for an official PA State Police criminal history background check."), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 8,
       display: 'flex',

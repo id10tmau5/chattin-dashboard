@@ -1,7 +1,13 @@
 name: Check DOC Status
 
 on:
+  # Manual trigger (Run Status Check button / Actions tab)
   workflow_dispatch:
+  # Daily auto-refresh at 07:00 UTC year-round.
+  # That's 3:00 AM EDT (summer) / 2:00 AM EST (winter) — middle of the
+  # night either way, so the DST hour-drift doesn't matter.
+  schedule:
+    - cron: '0 7 * * *'
 
 jobs:
   check-status:

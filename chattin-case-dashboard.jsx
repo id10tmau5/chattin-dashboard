@@ -1,4 +1,4 @@
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect, useMemo, useRef } = React;
 
 // ─── Theme Definitions ─────────────────────────────────────────────────────────
 const DARK = {
@@ -216,7 +216,45 @@ function CaseDashboard() {
   const [apiKeyMsg,     setApiKeyMsg]     = useState(null);
   const [checkCooldown, setCheckCooldown] = useState(0);    // seconds remaining before Check for Updates re-enables
   const [buildStatus,   setBuildStatus]   = useState('idle'); // idle|loading|ok|err
-  const [buildMsg2,     setBuildMsg2]     = useState(null);   // feedback for the footer rebuild button
+  const [buildMsg2,     setBuildMsg2]     = useState(null);
+
+  // ── Owner mode (hidden controls revealer) ──────────────────────────────────
+  // Desktop: Ctrl+Shift+U toggles. Mobile: 5 rapid taps on the footer source line.
+  // This is UI decluttering only — NOT a security boundary. The real protection
+  // is that the access token lives only in the owner's browser localStorage.
+  const [ownerMode, setOwnerMode] = useState(() => {
+    try { return localStorage.getItem('chattin_owner_mode') === '1'; } catch { return false; }
+  });
+  const tapState = useRef({ count: 0, last: 0 });
+
+  const toggleOwnerMode = () => {
+    setOwnerMode(prev => {
+      const next = !prev;
+      try { localStorage.setItem('chattin_owner_mode', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      // Ctrl+Shift+U  (or Cmd+Shift+U on Mac)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'U' || e.key === 'u')) {
+        e.preventDefault();
+        toggleOwnerMode();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Mobile reveal: 5 rapid taps (within 2s) on the footer source line
+  const handleSecretTap = () => {
+    const now = Date.now();
+    const s = tapState.current;
+    if (now - s.last < 600) { s.count += 1; } else { s.count = 1; }
+    s.last = now;
+    if (s.count >= 5) { s.count = 0; toggleOwnerMode(); }
+  };   // feedback for the footer rebuild button
 
   const getGhToken = () => { try { return localStorage.getItem('chattin_gh_token') || ''; } catch { return ''; } };
 
@@ -339,9 +377,11 @@ function CaseDashboard() {
             <span style={{ fontSize:16 }}>🔄</span>
             <span style={{ fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:C.green }}>DOC Status Checker</span>
           </div>
+          {ownerMode && (
           <button onClick={() => setConfigOpen(o => !o)} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:0.5, padding:'2px 6px', borderRadius:4, textDecoration:configOpen?'none':'underline' }}>
             ⚙ {configOpen ? 'close' : 'setup'}
           </button>
+          )}
         </div>
 
         {configOpen && (
@@ -396,6 +436,7 @@ function CaseDashboard() {
                     ? `⏳ ${checkCooldown}s`
                     : '🔄 Check for Updates'}
             </button>
+            {ownerMode && (
             <button onClick={handleRunCheck} disabled={triggerStatus === 'loading'} style={{
               padding:'10px 18px', borderRadius:8, border:`2px solid ${C.gold}`,
               background: triggerStatus==='loading' ? C.surface : triggerStatus==='ok' ? C.green : C.goldFaint,
@@ -404,6 +445,7 @@ function CaseDashboard() {
             }}>
               {triggerStatus==='loading' ? '⏳ Triggering…' : triggerStatus==='ok' ? '✓ Triggered!' : '⚡ Run Status Check'}
             </button>
+            )}
           </div>
 
           {triggerMsg && <div style={{ padding:'9px 14px', borderRadius:7, marginBottom:14, fontSize:12, background:triggerStatus==='ok'?C.greenFaint:C.redFaint, border:`1px solid ${triggerStatus==='ok'?C.green:C.red}44`, color:triggerStatus==='ok'?C.green:C.red }}>{triggerMsg}</div>}
@@ -1127,7 +1169,7 @@ function CaseDashboard() {
 
         {/* Footer */}
         <div style={{ textAlign: 'center', padding: '20px 0 0', borderTop: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 10, color: C.textDim, lineHeight: 1.8 }}>
-          <div>SOURCE: PA UJS Portal · PA DOC Inmate Locator · CP-54-CR-0000435-2021 · Inmate #PE1239 · Printed June 16, 2026</div>
+          <div onClick={handleSecretTap} style={{ cursor: 'default', userSelect: 'none' }}>SOURCE: PA UJS Portal · PA DOC Inmate Locator · CP-54-CR-0000435-2021 · Inmate #PE1239 · Printed June 16, 2026</div>
           <div>All data is public record. Not a substitute for an official PA State Police criminal history background check.</div>
           <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10 }}>
             <button
