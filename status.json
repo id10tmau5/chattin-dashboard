@@ -6,7 +6,7 @@
   "paroleNumber": "345JW",
   "age": null,
   "lastDOCUpdate": null,
-  "notes": "No status check has been run yet. Click Run Status Check in the dashboard (requires a GitHub token with repo scope in ⚙ Configure), or trigger the check-status workflow manually from the GitHub Actions tab.",
+  "notes": "No status check has run yet. Check back later.",
   "sourcesChecked": [],
   "confidence": "Low",
   "lastChecked": null,

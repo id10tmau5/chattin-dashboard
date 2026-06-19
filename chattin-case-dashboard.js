@@ -560,7 +560,7 @@ function CaseDashboard() {
   const handleRunCheck = async () => {
     const token = getGhToken();
     if (!token) {
-      setTriggerMsg('⚠ Open ⚙ Configure and save your GitHub Token first.');
+      setTriggerMsg('⚠ Please complete ⚙ setup first (tap the footer to access).');
       setTriggerStatus('err');
       setTimeout(() => {
         setTriggerStatus('idle');
@@ -926,7 +926,7 @@ function CaseDashboard() {
         color: C.textSub,
         lineHeight: 1.6
       }
-    }, /*#__PURE__*/React.createElement("strong", {
+    }, ownerMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("strong", {
       style: {
         color: C.text
       }
@@ -934,7 +934,11 @@ function CaseDashboard() {
       style: {
         color: C.text
       }
-    }, "Run Status Check"), " performs a fresh lookup — results typically appear within 30–60 seconds. Tap Check for Updates again after to see them."), lastChecked && /*#__PURE__*/React.createElement("div", {
+    }, "Run Status Check"), " performs a fresh lookup — results typically appear within 30–60 seconds. Tap Check for Updates again after to see them.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("strong", {
+      style: {
+        color: C.text
+      }
+    }, "Check for Updates"), " loads the last known status instantly.")), lastChecked && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: C.mono,
         fontSize: 10,
@@ -1013,14 +1017,7 @@ function CaseDashboard() {
         lineHeight: 1.7,
         marginBottom: 10
       }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontFamily: C.mono,
-        fontSize: 10,
-        color: C.textDim,
-        marginBottom: 5
-      }
-    }, "NOTES / DETAILS"), docStatus.notes), docStatus.sourcesChecked?.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, ownerMode ? docStatus.notes : docStatus.status === 'Unknown' ? 'No status check has run yet. Check back later.' : docStatus.notes), docStatus.sourcesChecked?.length > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: C.mono,
         fontSize: 10,
@@ -1663,10 +1660,26 @@ function CaseDashboard() {
       flexWrap: 'wrap',
       alignItems: 'center'
     }
-  }, /*#__PURE__*/React.createElement(Badge, {
-    label: "CONFIRMED IN CUSTODY 6/16/2026",
-    color: C.blue
-  }), /*#__PURE__*/React.createElement(ExLink, {
+  }, (() => {
+    const s = docStatus && docStatus.status;
+    const dt = docStatus && docStatus.lastDOCUpdate || '6/16/2026';
+    const lbl = s === 'Inmate' ? '🔒 IN CUSTODY · ' + dt : s === 'Parolee' ? '📋 ON PAROLE · ' + dt : s === 'Discharged' ? '✅ DISCHARGED · ' + dt : '🔒 IN CUSTODY · 6/16/2026';
+    const clr = s === 'Inmate' ? C.red : s === 'Parolee' ? C.gold : s === 'Discharged' ? C.green : C.red;
+    return /*#__PURE__*/React.createElement("span", {
+      style: {
+        padding: '5px 14px',
+        borderRadius: 99,
+        fontFamily: C.mono,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: 1,
+        background: clr + '22',
+        color: clr,
+        border: '2px solid ' + clr + '88',
+        boxShadow: '0 0 10px ' + clr + '44'
+      }
+    }, lbl);
+  })(), /*#__PURE__*/React.createElement(ExLink, {
     href: LINKS.sciCambridge,
     label: "SCI Cambridge Springs",
     color: C.blue
@@ -1863,6 +1876,12 @@ function CaseDashboard() {
     value: "6/1/2026 · 9:35:05 AM",
     mono: true,
     color: C.purple,
+    C: C
+  }), docStatus && docStatus.status && docStatus.status !== 'Unknown' && /*#__PURE__*/React.createElement(InfoRow, {
+    label: "Custody Status",
+    value: docStatus.status === 'Inmate' ? '🔒 Incarcerated' : docStatus.status === 'Parolee' ? '📋 On Parole' : '✅ Discharged',
+    color: docStatus.status === 'Inmate' ? C.red : docStatus.status === 'Parolee' ? C.gold : C.green,
+    mono: true,
     C: C
   }), /*#__PURE__*/React.createElement("div", {
     style: {

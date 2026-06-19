@@ -294,7 +294,7 @@ function CaseDashboard() {
   const handleRunCheck = async () => {
     const token = getGhToken();
     if (!token) {
-      setTriggerMsg('⚠ Open ⚙ Configure and save your GitHub Token first.'); setTriggerStatus('err');
+      setTriggerMsg('⚠ Please complete ⚙ setup first (tap the footer to access).'); setTriggerStatus('err');
       setTimeout(() => { setTriggerStatus('idle'); setTriggerMsg(null); }, 5000); return;
     }
     setTriggerStatus('loading'); setTriggerMsg(null);
@@ -452,7 +452,10 @@ function CaseDashboard() {
           {loadError && <div style={{ padding:'9px 14px', borderRadius:7, marginBottom:14, fontSize:12, background:C.redFaint, border:`1px solid ${C.red}44`, color:C.red }}>⚠ {loadError} — make sure the repo is live on GitHub Pages</div>}
 
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12, color:C.textSub, lineHeight:1.6 }}>
-            <strong style={{ color:C.text }}>Check for Updates</strong> loads the last known status instantly. <strong style={{ color:C.text }}>Run Status Check</strong> performs a fresh lookup — results typically appear within 30–60 seconds. Tap Check for Updates again after to see them.
+            {ownerMode
+              ? <><strong style={{ color:C.text }}>Check for Updates</strong> loads the last known status instantly. <strong style={{ color:C.text }}>Run Status Check</strong> performs a fresh lookup — results typically appear within 30–60 seconds. Tap Check for Updates again after to see them.</>
+              : <><strong style={{ color:C.text }}>Check for Updates</strong> loads the last known status instantly.</>
+            }
           </div>
 
           {lastChecked && (
@@ -477,7 +480,17 @@ function CaseDashboard() {
                   </div>
                 ))}
               </div>
-              {docStatus.notes && <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'12px', fontSize:12, color:C.textSub, lineHeight:1.7, marginBottom:10 }}><div style={{ fontFamily:C.mono, fontSize:10, color:C.textDim, marginBottom:5 }}>NOTES / DETAILS</div>{docStatus.notes}</div>}
+              {docStatus.notes && (
+              <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'12px', fontSize:12, color:C.textSub, lineHeight:1.7, marginBottom:10 }}>
+                {ownerMode
+                  ? docStatus.notes
+                  : (docStatus.status === 'Unknown'
+                    ? 'No status check has run yet. Check back later.'
+                    : docStatus.notes
+                  )
+                }
+              </div>
+            )}
               {docStatus.sourcesChecked?.length > 0 && <div style={{ fontFamily:C.mono, fontSize:10, color:C.textDim }}>Sources: {docStatus.sourcesChecked.join(' · ')}</div>}
             </div>
           ) : (
@@ -678,7 +691,22 @@ function CaseDashboard() {
             <div style={{ fontSize: 11, color: C.textSub }}>Women's State Prison · Crawford County, PA · Transferred {fmtDate(SCI)} · Last updated by DOC: 6/16/2026 at 4:00 AM</div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap', alignItems: 'center' }}>
-            <Badge label="CONFIRMED IN CUSTODY 6/16/2026" color={C.blue} />
+            {/* Dynamic status badge */}
+            {(()=>{
+              const s  = docStatus && docStatus.status;
+              const dt = (docStatus && docStatus.lastDOCUpdate) || '6/16/2026';
+              const lbl = s==='Inmate' ? '🔒 IN CUSTODY · '+dt
+                        : s==='Parolee' ? '📋 ON PAROLE · '+dt
+                        : s==='Discharged' ? '✅ DISCHARGED · '+dt
+                        : '🔒 IN CUSTODY · 6/16/2026';
+              const clr = s==='Inmate' ? C.red : s==='Parolee' ? C.gold : s==='Discharged' ? C.green : C.red;
+              return (
+                <span style={{ padding:'5px 14px', borderRadius:99, fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:1,
+                  background:clr+'22', color:clr, border:'2px solid '+clr+'88', boxShadow:'0 0 10px '+clr+'44' }}>
+                  {lbl}
+                </span>
+              );
+            })()}
             <ExLink href={LINKS.sciCambridge} label="SCI Cambridge Springs" color={C.blue} />
           </div>
         </div>
@@ -728,6 +756,14 @@ function CaseDashboard() {
                           <InfoRow label="Committing County"  value="Schuylkill"                                        C={C} />
                           <InfoRow label="Last Updated"       value="6/16/2026 · 4:00:31 AM"      mono color={C.green} C={C} />
                           <InfoRow label="Mugshot Date"       value="6/1/2026 · 9:35:05 AM"       mono color={C.purple} C={C} />
+              {docStatus && docStatus.status && docStatus.status !== 'Unknown' && (
+                <InfoRow
+                  label="Custody Status"
+                  value={docStatus.status==='Inmate' ? '🔒 Incarcerated' : docStatus.status==='Parolee' ? '📋 On Parole' : '✅ Discharged'}
+                  color={docStatus.status==='Inmate' ? C.red : docStatus.status==='Parolee' ? C.gold : C.green}
+                  mono C={C}
+                />
+              )}
                           <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             <ExLink href={LINKS.docLocator} label="Live DOC Locator · PE1239" icon="🔍" color={C.blue} />
                             <ExLink href={LINKS.paDOC}      label="PA Dept. of Corrections"   icon="🏛️" color={C.blue} />
