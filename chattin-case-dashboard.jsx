@@ -410,7 +410,7 @@ function CaseDashboard() {
           {loadError && <div style={{ padding:'9px 14px', borderRadius:7, marginBottom:14, fontSize:12, background:C.redFaint, border:`1px solid ${C.red}44`, color:C.red }}>⚠ {loadError} — make sure the repo is live on GitHub Pages</div>}
 
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12, color:C.textSub, lineHeight:1.6 }}>
-            <strong style={{ color:C.text }}>Check for Updates</strong> loads the last workflow result instantly. <strong style={{ color:C.text }}>Run Status Check</strong> performs a fresh lookup — results typically appear within 30–60 seconds. Tap Check for Updates again after to see them.
+            <strong style={{ color:C.text }}>Check for Updates</strong> loads the last known status instantly. <strong style={{ color:C.text }}>Run Status Check</strong> performs a fresh lookup — results typically appear within 30–60 seconds. Tap Check for Updates again after to see them.
           </div>
 
           {lastChecked && (
@@ -1133,7 +1133,7 @@ function CaseDashboard() {
             <button
               onClick={handleBuildTrigger}
               disabled={buildStatus === 'loading'}
-              title="Trigger dashboard recompile (build.yml)"
+              title="Recompile dashboard assets"
               style={{
                 background: 'none', border: 'none',
                 fontFamily: C.mono, fontSize: 9, letterSpacing: 0.5,

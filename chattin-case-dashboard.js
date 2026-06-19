@@ -877,7 +877,7 @@ function CaseDashboard() {
       style: {
         color: C.text
       }
-    }, "Check for Updates"), " loads the last workflow result instantly. ", /*#__PURE__*/React.createElement("strong", {
+    }, "Check for Updates"), " loads the last known status instantly. ", /*#__PURE__*/React.createElement("strong", {
       style: {
         color: C.text
       }
@@ -3477,7 +3477,7 @@ function CaseDashboard() {
   }, /*#__PURE__*/React.createElement("button", {
     onClick: handleBuildTrigger,
     disabled: buildStatus === 'loading',
-    title: "Trigger dashboard recompile (build.yml)",
+    title: "Recompile dashboard assets",
     style: {
       background: 'none',
       border: 'none',
