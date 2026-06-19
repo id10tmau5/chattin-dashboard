@@ -560,7 +560,7 @@ function CaseDashboard() {
   const handleRunCheck = async () => {
     const token = getGhToken();
     if (!token) {
-      setTriggerMsg('⚠ Please complete ⚙ setup first (tap the footer to access).');
+      setTriggerMsg('⚠ Enter your access token in ⚙ setup first.');
       setTriggerStatus('err');
       setTimeout(() => {
         setTriggerStatus('idle');
@@ -3552,7 +3552,7 @@ function CaseDashboard() {
       alignItems: 'center',
       gap: 10
     }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, ownerMode && /*#__PURE__*/React.createElement("button", {
     onClick: handleBuildTrigger,
     disabled: buildStatus === 'loading',
     title: "Recompile dashboard assets",

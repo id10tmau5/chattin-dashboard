@@ -294,7 +294,7 @@ function CaseDashboard() {
   const handleRunCheck = async () => {
     const token = getGhToken();
     if (!token) {
-      setTriggerMsg('⚠ Please complete ⚙ setup first (tap the footer to access).'); setTriggerStatus('err');
+      setTriggerMsg('⚠ Enter your access token in ⚙ setup first.'); setTriggerStatus('err');
       setTimeout(() => { setTriggerStatus('idle'); setTriggerMsg(null); }, 5000); return;
     }
     setTriggerStatus('loading'); setTriggerMsg(null);
@@ -1208,6 +1208,7 @@ function CaseDashboard() {
           <div onClick={handleSecretTap} style={{ cursor: 'default', userSelect: 'none' }}>SOURCE: PA UJS Portal · PA DOC Inmate Locator · CP-54-CR-0000435-2021 · Inmate #PE1239 · Printed June 16, 2026</div>
           <div>All data is public record. Not a substitute for an official PA State Police criminal history background check.</div>
           <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10 }}>
+            {ownerMode && (
             <button
               onClick={handleBuildTrigger}
               disabled={buildStatus === 'loading'}
@@ -1221,6 +1222,7 @@ function CaseDashboard() {
               }}>
               {buildStatus === 'loading' ? '⧗ compiling…' : buildStatus === 'ok' ? '✓ compiled' : buildStatus === 'err' ? '✕ compile failed' : '↻ compile'}
             </button>
+            )}
             {buildMsg2 && (
               <span style={{ fontSize: 9, color: buildStatus === 'ok' ? C.green : C.red, opacity: 0.75 }}>
                 {buildMsg2}
