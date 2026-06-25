@@ -124,8 +124,6 @@ const Expand = ({ label, icon, children, accent, C, defaultOpen = false }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
-      <PdfLightbox />
-      <MugshotLightbox />
       <button onClick={() => setOpen(!open)} style={{
         width: '100%', background: open ? C.cardHover : C.card,
         border: 'none', cursor: 'pointer', padding: '12px 16px',
@@ -655,8 +653,71 @@ function CaseDashboard() {
     { w: 'LOW',      c: C.blue,  label: 'SCI Cambridge Springs Program Access', detail: "Cambridge Springs is a women's state facility offering substance abuse, educational, and vocational programming. Documented participation in any of these would be the single most impactful factor she could present at a hearing — not confirmed in the public record." },
   ];
 
+  // ── PDF Lightbox ─────────────────────────────────────────────────────────────
+  const PdfLightbox = () => !lightboxPdf.open ? null : (
+    <div onClick={closePdf} style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.88)', zIndex:9998, display:'flex', flexDirection:'column' }}>
+      {/* Header bar */}
+      <div onClick={e => e.stopPropagation()} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 16px', background:'#0A1520', borderBottom:'1px solid #1C3650', gap:12, flexWrap:'wrap' }}>
+        <span style={{ fontFamily:'Courier New, monospace', fontSize:12, color:'#8AAECE' }}>
+          {lightboxPdf.title} · {lightboxPdf.docket}
+        </span>
+        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+          {lightboxPdf.altUrl && (
+            <button onClick={() => setLightboxPdf(p => ({ ...p, url:p.altUrl, title:p.altTitle, altUrl:p.url, altTitle:p.title }))}
+              style={{ padding:'4px 10px', borderRadius:4, background:'none', border:'1px solid #1C3650', color:'#8AAECE', fontFamily:'Courier New, monospace', fontSize:11, cursor:'pointer' }}>
+              Switch to {lightboxPdf.altTitle}
+            </button>
+          )}
+          <a href={lightboxPdf.url} target="_blank" rel="noopener noreferrer"
+            style={{ padding:'4px 10px', borderRadius:4, background:'none', border:'1px solid #2A4D6E', color:'#4DB8FF', fontFamily:'Courier New, monospace', fontSize:11, textDecoration:'none' }}>
+            ↗ Open in tab
+          </a>
+          <button onClick={closePdf} style={{ background:'none', border:'none', color:'#fff', fontSize:22, cursor:'pointer', lineHeight:1, padding:'0 4px' }}>✕</button>
+        </div>
+      </div>
+      {/* Content */}
+      {isMobile ? (
+        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, padding:24 }}>
+          <div style={{ fontSize:40 }}>📄</div>
+          <div style={{ color:'#8AAECE', fontSize:13, textAlign:'center', lineHeight:1.7 }}>PDF viewing works best on desktop.<br />Tap below to open in a new tab.</div>
+          <a href={lightboxPdf.url} target="_blank" rel="noopener noreferrer"
+            style={{ padding:'12px 28px', background:'#1A3D6E', color:'#4DB8FF', borderRadius:8, textDecoration:'none', fontFamily:'Courier New, monospace', fontSize:13, border:'1px solid #2A4D6E' }}>
+            Open {lightboxPdf.title} ↗
+          </a>
+          {lightboxPdf.altUrl && (
+            <a href={lightboxPdf.altUrl} target="_blank" rel="noopener noreferrer"
+              style={{ padding:'10px 24px', background:'none', color:'#8AAECE', borderRadius:8, textDecoration:'none', fontFamily:'Courier New, monospace', fontSize:12, border:'1px solid #1C3650' }}>
+              Open {lightboxPdf.altTitle} ↗
+            </a>
+          )}
+        </div>
+      ) : (
+        <iframe src={lightboxPdf.url} title={lightboxPdf.title} onClick={e => e.stopPropagation()}
+          style={{ flex:1, border:'none', width:'100%', background:'#111' }} />
+      )}
+    </div>
+  );
+
+  // ── Mugshot Lightbox ──────────────────────────────────────────────────────────
+  const MugshotLightbox = () => !lightboxImg ? null : (
+    <div onClick={() => setLightboxImg(false)} style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.93)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out' }}>
+      <img src={MUGSHOT} alt="PA DOC official photo"
+        style={{ maxWidth:'88vw', maxHeight:'88vh', objectFit:'contain', borderRadius:6, boxShadow:'0 0 60px rgba(0,0,0,0.9)' }} />
+      <button onClick={() => setLightboxImg(false)}
+        style={{ position:'absolute', top:16, right:16, background:'rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.2)', color:'#fff', fontSize:20, cursor:'pointer', borderRadius:6, padding:'4px 12px', fontFamily:'Courier New, monospace' }}>
+        ✕
+      </button>
+      <div style={{ position:'absolute', bottom:20, color:'rgba(255,255,255,0.4)', fontSize:11, fontFamily:'Courier New, monospace' }}>
+        PA DOC Official Photo · PE1239 · Updated 6/1/2026
+      </div>
+    </div>
+  );
+
+
   return (
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", background: C.bg, minHeight: '100vh', color: C.text, paddingBottom: 40, transition: 'background 0.2s, color 0.2s' }}>
+      <PdfLightbox />
+      <MugshotLightbox />
 
       {/* ══ HEADER ══════════════════════════════════════════════════════════════ */}
       <div style={{ background: C.surface, borderBottom: `2px solid ${C.borderStrong}`, padding: '20px 24px 18px', boxShadow: C.shadow }}>
@@ -719,68 +780,7 @@ function CaseDashboard() {
                         : s==='Discharged' ? '✅ DISCHARGED · '+dt
                         : '🔒 IN CUSTODY · 6/16/2026';
               const clr = s==='Inmate' ? C.red : s==='Parolee' ? C.gold : s==='Discharged' ? C.green : C.red;
-            
-  // ── PDF Lightbox ─────────────────────────────────────────────────────────────
-  const PdfLightbox = () => !lightboxPdf.open ? null : (
-    <div onClick={closePdf} style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.88)', zIndex:9998, display:'flex', flexDirection:'column' }}>
-      {/* Header bar */}
-      <div onClick={e => e.stopPropagation()} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 16px', background:'#0A1520', borderBottom:'1px solid #1C3650', gap:12, flexWrap:'wrap' }}>
-        <span style={{ fontFamily:'Courier New, monospace', fontSize:12, color:'#8AAECE' }}>
-          {lightboxPdf.title} · {lightboxPdf.docket}
-        </span>
-        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-          {lightboxPdf.altUrl && (
-            <button onClick={() => setLightboxPdf(p => ({ ...p, url:p.altUrl, title:p.altTitle, altUrl:p.url, altTitle:p.title }))}
-              style={{ padding:'4px 10px', borderRadius:4, background:'none', border:'1px solid #1C3650', color:'#8AAECE', fontFamily:'Courier New, monospace', fontSize:11, cursor:'pointer' }}>
-              Switch to {lightboxPdf.altTitle}
-            </button>
-          )}
-          <a href={lightboxPdf.url} target="_blank" rel="noopener noreferrer"
-            style={{ padding:'4px 10px', borderRadius:4, background:'none', border:'1px solid #2A4D6E', color:'#4DB8FF', fontFamily:'Courier New, monospace', fontSize:11, textDecoration:'none' }}>
-            ↗ Open in tab
-          </a>
-          <button onClick={closePdf} style={{ background:'none', border:'none', color:'#fff', fontSize:22, cursor:'pointer', lineHeight:1, padding:'0 4px' }}>✕</button>
-        </div>
-      </div>
-      {/* Content */}
-      {isMobile ? (
-        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, padding:24 }}>
-          <div style={{ fontSize:40 }}>📄</div>
-          <div style={{ color:'#8AAECE', fontSize:13, textAlign:'center', lineHeight:1.7 }}>PDF viewing works best on desktop.<br />Tap below to open in a new tab.</div>
-          <a href={lightboxPdf.url} target="_blank" rel="noopener noreferrer"
-            style={{ padding:'12px 28px', background:'#1A3D6E', color:'#4DB8FF', borderRadius:8, textDecoration:'none', fontFamily:'Courier New, monospace', fontSize:13, border:'1px solid #2A4D6E' }}>
-            Open {lightboxPdf.title} ↗
-          </a>
-          {lightboxPdf.altUrl && (
-            <a href={lightboxPdf.altUrl} target="_blank" rel="noopener noreferrer"
-              style={{ padding:'10px 24px', background:'none', color:'#8AAECE', borderRadius:8, textDecoration:'none', fontFamily:'Courier New, monospace', fontSize:12, border:'1px solid #1C3650' }}>
-              Open {lightboxPdf.altTitle} ↗
-            </a>
-          )}
-        </div>
-      ) : (
-        <iframe src={lightboxPdf.url} title={lightboxPdf.title} onClick={e => e.stopPropagation()}
-          style={{ flex:1, border:'none', width:'100%', background:'#111' }} />
-      )}
-    </div>
-  );
-
-  // ── Mugshot Lightbox ──────────────────────────────────────────────────────────
-  const MugshotLightbox = () => !lightboxImg ? null : (
-    <div onClick={() => setLightboxImg(false)} style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.93)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out' }}>
-      <img src={MUGSHOT} alt="PA DOC official photo"
-        style={{ maxWidth:'88vw', maxHeight:'88vh', objectFit:'contain', borderRadius:6, boxShadow:'0 0 60px rgba(0,0,0,0.9)' }} />
-      <button onClick={() => setLightboxImg(false)}
-        style={{ position:'absolute', top:16, right:16, background:'rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.2)', color:'#fff', fontSize:20, cursor:'pointer', borderRadius:6, padding:'4px 12px', fontFamily:'Courier New, monospace' }}>
-        ✕
-      </button>
-      <div style={{ position:'absolute', bottom:20, color:'rgba(255,255,255,0.4)', fontSize:11, fontFamily:'Courier New, monospace' }}>
-        PA DOC Official Photo · PE1239 · Updated 6/1/2026
-      </div>
-    </div>
-  );
-
-  return (
+              return (
                 <span style={{ padding:'5px 14px', borderRadius:99, fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:1,
                   background:clr+'22', color:clr, border:'2px solid '+clr+'88', boxShadow:'0 0 10px '+clr+'44' }}>
                   {lbl}

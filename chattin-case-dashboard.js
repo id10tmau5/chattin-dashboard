@@ -298,7 +298,7 @@ const Expand = ({
       overflow: 'hidden',
       marginBottom: 8
     }
-  }, /*#__PURE__*/React.createElement(PdfLightbox, null), /*#__PURE__*/React.createElement(MugshotLightbox, null), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setOpen(!open),
     style: {
       width: '100%',
@@ -1535,6 +1535,199 @@ function CaseDashboard() {
     label: 'SCI Cambridge Springs Program Access',
     detail: "Cambridge Springs is a women's state facility offering substance abuse, educational, and vocational programming. Documented participation in any of these would be the single most impactful factor she could present at a hearing — not confirmed in the public record."
   }];
+
+  // ── PDF Lightbox ─────────────────────────────────────────────────────────────
+  const PdfLightbox = () => !lightboxPdf.open ? null : /*#__PURE__*/React.createElement("div", {
+    onClick: closePdf,
+    style: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.88)',
+      zIndex: 9998,
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '10px 16px',
+      background: '#0A1520',
+      borderBottom: '1px solid #1C3650',
+      gap: 12,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'Courier New, monospace',
+      fontSize: 12,
+      color: '#8AAECE'
+    }
+  }, lightboxPdf.title, " · ", lightboxPdf.docket), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10,
+      alignItems: 'center'
+    }
+  }, lightboxPdf.altUrl && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setLightboxPdf(p => ({
+      ...p,
+      url: p.altUrl,
+      title: p.altTitle,
+      altUrl: p.url,
+      altTitle: p.title
+    })),
+    style: {
+      padding: '4px 10px',
+      borderRadius: 4,
+      background: 'none',
+      border: '1px solid #1C3650',
+      color: '#8AAECE',
+      fontFamily: 'Courier New, monospace',
+      fontSize: 11,
+      cursor: 'pointer'
+    }
+  }, "Switch to ", lightboxPdf.altTitle), /*#__PURE__*/React.createElement("a", {
+    href: lightboxPdf.url,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      padding: '4px 10px',
+      borderRadius: 4,
+      background: 'none',
+      border: '1px solid #2A4D6E',
+      color: '#4DB8FF',
+      fontFamily: 'Courier New, monospace',
+      fontSize: 11,
+      textDecoration: 'none'
+    }
+  }, "↗ Open in tab"), /*#__PURE__*/React.createElement("button", {
+    onClick: closePdf,
+    style: {
+      background: 'none',
+      border: 'none',
+      color: '#fff',
+      fontSize: 22,
+      cursor: 'pointer',
+      lineHeight: 1,
+      padding: '0 4px'
+    }
+  }, "✕"))), isMobile ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 16,
+      padding: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 40
+    }
+  }, "📄"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: '#8AAECE',
+      fontSize: 13,
+      textAlign: 'center',
+      lineHeight: 1.7
+    }
+  }, "PDF viewing works best on desktop.", /*#__PURE__*/React.createElement("br", null), "Tap below to open in a new tab."), /*#__PURE__*/React.createElement("a", {
+    href: lightboxPdf.url,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      padding: '12px 28px',
+      background: '#1A3D6E',
+      color: '#4DB8FF',
+      borderRadius: 8,
+      textDecoration: 'none',
+      fontFamily: 'Courier New, monospace',
+      fontSize: 13,
+      border: '1px solid #2A4D6E'
+    }
+  }, "Open ", lightboxPdf.title, " ↗"), lightboxPdf.altUrl && /*#__PURE__*/React.createElement("a", {
+    href: lightboxPdf.altUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    style: {
+      padding: '10px 24px',
+      background: 'none',
+      color: '#8AAECE',
+      borderRadius: 8,
+      textDecoration: 'none',
+      fontFamily: 'Courier New, monospace',
+      fontSize: 12,
+      border: '1px solid #1C3650'
+    }
+  }, "Open ", lightboxPdf.altTitle, " ↗")) : /*#__PURE__*/React.createElement("iframe", {
+    src: lightboxPdf.url,
+    title: lightboxPdf.title,
+    onClick: e => e.stopPropagation(),
+    style: {
+      flex: 1,
+      border: 'none',
+      width: '100%',
+      background: '#111'
+    }
+  }));
+
+  // ── Mugshot Lightbox ──────────────────────────────────────────────────────────
+  const MugshotLightbox = () => !lightboxImg ? null : /*#__PURE__*/React.createElement("div", {
+    onClick: () => setLightboxImg(false),
+    style: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.93)',
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'zoom-out'
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: MUGSHOT,
+    alt: "PA DOC official photo",
+    style: {
+      maxWidth: '88vw',
+      maxHeight: '88vh',
+      objectFit: 'contain',
+      borderRadius: 6,
+      boxShadow: '0 0 60px rgba(0,0,0,0.9)'
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setLightboxImg(false),
+    style: {
+      position: 'absolute',
+      top: 16,
+      right: 16,
+      background: 'rgba(0,0,0,0.6)',
+      border: '1px solid rgba(255,255,255,0.2)',
+      color: '#fff',
+      fontSize: 20,
+      cursor: 'pointer',
+      borderRadius: 6,
+      padding: '4px 12px',
+      fontFamily: 'Courier New, monospace'
+    }
+  }, "✕"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      bottom: 20,
+      color: 'rgba(255,255,255,0.4)',
+      fontSize: 11,
+      fontFamily: 'Courier New, monospace'
+    }
+  }, "PA DOC Official Photo · PE1239 · Updated 6/1/2026"));
   return /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: "'Segoe UI', system-ui, sans-serif",
@@ -1544,7 +1737,7 @@ function CaseDashboard() {
       paddingBottom: 40,
       transition: 'background 0.2s, color 0.2s'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(PdfLightbox, null), /*#__PURE__*/React.createElement(MugshotLightbox, null), /*#__PURE__*/React.createElement("div", {
     style: {
       background: C.surface,
       borderBottom: `2px solid ${C.borderStrong}`,
@@ -1696,199 +1889,6 @@ function CaseDashboard() {
     const dt = docStatus && docStatus.lastDOCUpdate || '6/16/2026';
     const lbl = s === 'Inmate' ? '🔒 IN CUSTODY · ' + dt : s === 'Parolee' ? '📋 ON PAROLE · ' + dt : s === 'Discharged' ? '✅ DISCHARGED · ' + dt : '🔒 IN CUSTODY · 6/16/2026';
     const clr = s === 'Inmate' ? C.red : s === 'Parolee' ? C.gold : s === 'Discharged' ? C.green : C.red;
-
-    // ── PDF Lightbox ─────────────────────────────────────────────────────────────
-    const PdfLightbox = () => !lightboxPdf.open ? null : /*#__PURE__*/React.createElement("div", {
-      onClick: closePdf,
-      style: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.88)',
-        zIndex: 9998,
-        display: 'flex',
-        flexDirection: 'column'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      onClick: e => e.stopPropagation(),
-      style: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '10px 16px',
-        background: '#0A1520',
-        borderBottom: '1px solid #1C3650',
-        gap: 12,
-        flexWrap: 'wrap'
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontFamily: 'Courier New, monospace',
-        fontSize: 12,
-        color: '#8AAECE'
-      }
-    }, lightboxPdf.title, " · ", lightboxPdf.docket), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 10,
-        alignItems: 'center'
-      }
-    }, lightboxPdf.altUrl && /*#__PURE__*/React.createElement("button", {
-      onClick: () => setLightboxPdf(p => ({
-        ...p,
-        url: p.altUrl,
-        title: p.altTitle,
-        altUrl: p.url,
-        altTitle: p.title
-      })),
-      style: {
-        padding: '4px 10px',
-        borderRadius: 4,
-        background: 'none',
-        border: '1px solid #1C3650',
-        color: '#8AAECE',
-        fontFamily: 'Courier New, monospace',
-        fontSize: 11,
-        cursor: 'pointer'
-      }
-    }, "Switch to ", lightboxPdf.altTitle), /*#__PURE__*/React.createElement("a", {
-      href: lightboxPdf.url,
-      target: "_blank",
-      rel: "noopener noreferrer",
-      style: {
-        padding: '4px 10px',
-        borderRadius: 4,
-        background: 'none',
-        border: '1px solid #2A4D6E',
-        color: '#4DB8FF',
-        fontFamily: 'Courier New, monospace',
-        fontSize: 11,
-        textDecoration: 'none'
-      }
-    }, "↗ Open in tab"), /*#__PURE__*/React.createElement("button", {
-      onClick: closePdf,
-      style: {
-        background: 'none',
-        border: 'none',
-        color: '#fff',
-        fontSize: 22,
-        cursor: 'pointer',
-        lineHeight: 1,
-        padding: '0 4px'
-      }
-    }, "✕"))), isMobile ? /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 16,
-        padding: 24
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 40
-      }
-    }, "📄"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: '#8AAECE',
-        fontSize: 13,
-        textAlign: 'center',
-        lineHeight: 1.7
-      }
-    }, "PDF viewing works best on desktop.", /*#__PURE__*/React.createElement("br", null), "Tap below to open in a new tab."), /*#__PURE__*/React.createElement("a", {
-      href: lightboxPdf.url,
-      target: "_blank",
-      rel: "noopener noreferrer",
-      style: {
-        padding: '12px 28px',
-        background: '#1A3D6E',
-        color: '#4DB8FF',
-        borderRadius: 8,
-        textDecoration: 'none',
-        fontFamily: 'Courier New, monospace',
-        fontSize: 13,
-        border: '1px solid #2A4D6E'
-      }
-    }, "Open ", lightboxPdf.title, " ↗"), lightboxPdf.altUrl && /*#__PURE__*/React.createElement("a", {
-      href: lightboxPdf.altUrl,
-      target: "_blank",
-      rel: "noopener noreferrer",
-      style: {
-        padding: '10px 24px',
-        background: 'none',
-        color: '#8AAECE',
-        borderRadius: 8,
-        textDecoration: 'none',
-        fontFamily: 'Courier New, monospace',
-        fontSize: 12,
-        border: '1px solid #1C3650'
-      }
-    }, "Open ", lightboxPdf.altTitle, " ↗")) : /*#__PURE__*/React.createElement("iframe", {
-      src: lightboxPdf.url,
-      title: lightboxPdf.title,
-      onClick: e => e.stopPropagation(),
-      style: {
-        flex: 1,
-        border: 'none',
-        width: '100%',
-        background: '#111'
-      }
-    }));
-
-    // ── Mugshot Lightbox ──────────────────────────────────────────────────────────
-    const MugshotLightbox = () => !lightboxImg ? null : /*#__PURE__*/React.createElement("div", {
-      onClick: () => setLightboxImg(false),
-      style: {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.93)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'zoom-out'
-      }
-    }, /*#__PURE__*/React.createElement("img", {
-      src: MUGSHOT,
-      alt: "PA DOC official photo",
-      style: {
-        maxWidth: '88vw',
-        maxHeight: '88vh',
-        objectFit: 'contain',
-        borderRadius: 6,
-        boxShadow: '0 0 60px rgba(0,0,0,0.9)'
-      }
-    }), /*#__PURE__*/React.createElement("button", {
-      onClick: () => setLightboxImg(false),
-      style: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        background: 'rgba(0,0,0,0.6)',
-        border: '1px solid rgba(255,255,255,0.2)',
-        color: '#fff',
-        fontSize: 20,
-        cursor: 'pointer',
-        borderRadius: 6,
-        padding: '4px 12px',
-        fontFamily: 'Courier New, monospace'
-      }
-    }, "✕"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        position: 'absolute',
-        bottom: 20,
-        color: 'rgba(255,255,255,0.4)',
-        fontSize: 11,
-        fontFamily: 'Courier New, monospace'
-      }
-    }, "PA DOC Official Photo · PE1239 · Updated 6/1/2026"));
     return /*#__PURE__*/React.createElement("span", {
       style: {
         padding: '5px 14px',
