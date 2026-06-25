@@ -298,7 +298,7 @@ const Expand = ({
       overflow: 'hidden',
       marginBottom: 8
     }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement(PdfLightbox, null), /*#__PURE__*/React.createElement(MugshotLightbox, null), /*#__PURE__*/React.createElement("button", {
     onClick: () => setOpen(!open),
     style: {
       width: '100%',
@@ -457,6 +457,29 @@ function CaseDashboard() {
   const [checkCooldown, setCheckCooldown] = useState(0); // seconds remaining before Check for Updates re-enables
   const [buildStatus, setBuildStatus] = useState('idle'); // idle|loading|ok|err
   const [buildMsg2, setBuildMsg2] = useState(null);
+  const [lightboxPdf, setLightboxPdf] = useState({
+    open: false,
+    url: null,
+    title: null,
+    altUrl: null,
+    altTitle: null
+  });
+  const [lightboxImg, setLightboxImg] = useState(false);
+  const closePdf = () => setLightboxPdf({
+    open: false,
+    url: null,
+    title: null,
+    altUrl: null,
+    altTitle: null
+  });
+  const openPdf = (docket, type = 'docket') => setLightboxPdf({
+    open: true,
+    url: `./assets/pdfs/${docket}-${type}.pdf`,
+    title: type === 'docket' ? 'Docket Sheet' : 'Court Summary',
+    altUrl: `./assets/pdfs/${docket}-${type === 'docket' ? 'summary' : 'docket'}.pdf`,
+    altTitle: type === 'docket' ? 'Court Summary' : 'Docket Sheet',
+    docket
+  });
 
   // ── Owner mode (hidden controls revealer) ──────────────────────────────────
   // Desktop: Ctrl+Shift+U toggles. Mobile: 5 rapid taps on the footer source line.
@@ -1032,22 +1055,29 @@ function CaseDashboard() {
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 32,
-        marginBottom: 10
+        fontSize: 40,
+        marginBottom: 12,
+        textAlign: 'center'
       }
     }, "🔍"), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 13
+        fontSize: 13,
+        textAlign: 'center',
+        lineHeight: 1.7
       }
-    }, "Hit ", /*#__PURE__*/React.createElement("strong", {
+    }, ownerMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("strong", {
       style: {
         color: C.blue
       }
-    }, "Check for Updates"), " to load the last workflow result, or ", /*#__PURE__*/React.createElement("strong", {
+    }, "Check for Updates"), " loads the last known status. ", /*#__PURE__*/React.createElement("strong", {
       style: {
         color: C.gold
       }
-    }, "Run Status Check"), " to trigger a fresh query."))), /*#__PURE__*/React.createElement("div", {
+    }, "Run Status Check"), " triggers a fresh lookup.") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("strong", {
+      style: {
+        color: C.blue
+      }
+    }, "Check for Updates"), " loads the current status.")))), /*#__PURE__*/React.createElement("div", {
       style: {
         marginTop: 10,
         fontSize: 11,
@@ -1666,6 +1696,199 @@ function CaseDashboard() {
     const dt = docStatus && docStatus.lastDOCUpdate || '6/16/2026';
     const lbl = s === 'Inmate' ? '🔒 IN CUSTODY · ' + dt : s === 'Parolee' ? '📋 ON PAROLE · ' + dt : s === 'Discharged' ? '✅ DISCHARGED · ' + dt : '🔒 IN CUSTODY · 6/16/2026';
     const clr = s === 'Inmate' ? C.red : s === 'Parolee' ? C.gold : s === 'Discharged' ? C.green : C.red;
+
+    // ── PDF Lightbox ─────────────────────────────────────────────────────────────
+    const PdfLightbox = () => !lightboxPdf.open ? null : /*#__PURE__*/React.createElement("div", {
+      onClick: closePdf,
+      style: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.88)',
+        zIndex: 9998,
+        display: 'flex',
+        flexDirection: 'column'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: e => e.stopPropagation(),
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 16px',
+        background: '#0A1520',
+        borderBottom: '1px solid #1C3650',
+        gap: 12,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: 'Courier New, monospace',
+        fontSize: 12,
+        color: '#8AAECE'
+      }
+    }, lightboxPdf.title, " · ", lightboxPdf.docket), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 10,
+        alignItems: 'center'
+      }
+    }, lightboxPdf.altUrl && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setLightboxPdf(p => ({
+        ...p,
+        url: p.altUrl,
+        title: p.altTitle,
+        altUrl: p.url,
+        altTitle: p.title
+      })),
+      style: {
+        padding: '4px 10px',
+        borderRadius: 4,
+        background: 'none',
+        border: '1px solid #1C3650',
+        color: '#8AAECE',
+        fontFamily: 'Courier New, monospace',
+        fontSize: 11,
+        cursor: 'pointer'
+      }
+    }, "Switch to ", lightboxPdf.altTitle), /*#__PURE__*/React.createElement("a", {
+      href: lightboxPdf.url,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      style: {
+        padding: '4px 10px',
+        borderRadius: 4,
+        background: 'none',
+        border: '1px solid #2A4D6E',
+        color: '#4DB8FF',
+        fontFamily: 'Courier New, monospace',
+        fontSize: 11,
+        textDecoration: 'none'
+      }
+    }, "↗ Open in tab"), /*#__PURE__*/React.createElement("button", {
+      onClick: closePdf,
+      style: {
+        background: 'none',
+        border: 'none',
+        color: '#fff',
+        fontSize: 22,
+        cursor: 'pointer',
+        lineHeight: 1,
+        padding: '0 4px'
+      }
+    }, "✕"))), isMobile ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        padding: 24
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 40
+      }
+    }, "📄"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: '#8AAECE',
+        fontSize: 13,
+        textAlign: 'center',
+        lineHeight: 1.7
+      }
+    }, "PDF viewing works best on desktop.", /*#__PURE__*/React.createElement("br", null), "Tap below to open in a new tab."), /*#__PURE__*/React.createElement("a", {
+      href: lightboxPdf.url,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      style: {
+        padding: '12px 28px',
+        background: '#1A3D6E',
+        color: '#4DB8FF',
+        borderRadius: 8,
+        textDecoration: 'none',
+        fontFamily: 'Courier New, monospace',
+        fontSize: 13,
+        border: '1px solid #2A4D6E'
+      }
+    }, "Open ", lightboxPdf.title, " ↗"), lightboxPdf.altUrl && /*#__PURE__*/React.createElement("a", {
+      href: lightboxPdf.altUrl,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      style: {
+        padding: '10px 24px',
+        background: 'none',
+        color: '#8AAECE',
+        borderRadius: 8,
+        textDecoration: 'none',
+        fontFamily: 'Courier New, monospace',
+        fontSize: 12,
+        border: '1px solid #1C3650'
+      }
+    }, "Open ", lightboxPdf.altTitle, " ↗")) : /*#__PURE__*/React.createElement("iframe", {
+      src: lightboxPdf.url,
+      title: lightboxPdf.title,
+      onClick: e => e.stopPropagation(),
+      style: {
+        flex: 1,
+        border: 'none',
+        width: '100%',
+        background: '#111'
+      }
+    }));
+
+    // ── Mugshot Lightbox ──────────────────────────────────────────────────────────
+    const MugshotLightbox = () => !lightboxImg ? null : /*#__PURE__*/React.createElement("div", {
+      onClick: () => setLightboxImg(false),
+      style: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.93)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'zoom-out'
+      }
+    }, /*#__PURE__*/React.createElement("img", {
+      src: MUGSHOT,
+      alt: "PA DOC official photo",
+      style: {
+        maxWidth: '88vw',
+        maxHeight: '88vh',
+        objectFit: 'contain',
+        borderRadius: 6,
+        boxShadow: '0 0 60px rgba(0,0,0,0.9)'
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: () => setLightboxImg(false),
+      style: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        background: 'rgba(0,0,0,0.6)',
+        border: '1px solid rgba(255,255,255,0.2)',
+        color: '#fff',
+        fontSize: 20,
+        cursor: 'pointer',
+        borderRadius: 6,
+        padding: '4px 12px',
+        fontFamily: 'Courier New, monospace'
+      }
+    }, "✕"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        bottom: 20,
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: 11,
+        fontFamily: 'Courier New, monospace'
+      }
+    }, "PA DOC Official Photo · PE1239 · Updated 6/1/2026"));
     return /*#__PURE__*/React.createElement("span", {
       style: {
         padding: '5px 14px',
@@ -1771,9 +1994,11 @@ function CaseDashboard() {
   }, /*#__PURE__*/React.createElement("img", {
     src: MUGSHOT,
     alt: "PA DOC official photo",
+    onClick: () => setLightboxImg(true),
     style: {
       width: '100%',
-      display: 'block'
+      display: 'block',
+      cursor: 'zoom-in'
     }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2372,6 +2597,57 @@ function CaseDashboard() {
     C: C
   }, /*#__PURE__*/React.createElement("div", {
     style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap',
+      marginBottom: 14,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: C.mono,
+      fontSize: 10,
+      color: C.textDim,
+      letterSpacing: 1
+    }
+  }, "CASE DOCUMENTS · CP-54-CR-0000435-2021"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf('CP-54-CR-0000435-2021', 'docket'),
+    style: {
+      fontFamily: C.mono,
+      fontSize: 10,
+      color: C.blue,
+      background: C.blueFaint,
+      border: '1px solid ' + C.blue + '44',
+      borderRadius: 4,
+      padding: '3px 8px',
+      cursor: 'pointer'
+    }
+  }, "📄 Docket Sheet"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf('CP-54-CR-0000435-2021', 'summary'),
+    style: {
+      fontFamily: C.mono,
+      fontSize: 10,
+      color: C.blue,
+      background: C.blueFaint,
+      border: '1px solid ' + C.blue + '44',
+      borderRadius: 4,
+      padding: '3px 8px',
+      cursor: 'pointer'
+    }
+  }, "🏛 Court Summary"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf('CP-54-CR-0000437-2021', 'docket'),
+    style: {
+      fontFamily: C.mono,
+      fontSize: 10,
+      color: C.textSub,
+      background: C.surface,
+      border: '1px solid ' + C.border,
+      borderRadius: 4,
+      padding: '3px 8px',
+      cursor: 'pointer'
+    }
+  }, "📄 Concurrent Case")), /*#__PURE__*/React.createElement("div", {
+    style: {
       background: C.card,
       border: `1px solid ${C.border}`,
       borderRadius: 8,
@@ -2754,7 +3030,37 @@ function CaseDashboard() {
   }, /*#__PURE__*/React.createElement(DocketLink, {
     docket: pc.docket,
     C: C
-  }))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 4,
+      marginTop: 5
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf(pc.docket, 'docket'),
+    style: {
+      fontFamily: C.mono,
+      fontSize: 9,
+      color: C.textSub,
+      background: C.surface,
+      border: '1px solid ' + C.border,
+      borderRadius: 3,
+      padding: '2px 6px',
+      cursor: 'pointer'
+    }
+  }, "📄 Docket"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf(pc.docket, 'summary'),
+    style: {
+      fontFamily: C.mono,
+      fontSize: 9,
+      color: C.textSub,
+      background: C.surface,
+      border: '1px solid ' + C.border,
+      borderRadius: 3,
+      padding: '2px 6px',
+      cursor: 'pointer'
+    }
+  }, "🏛 Summary")))), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: C.textSub,

@@ -124,6 +124,8 @@ const Expand = ({ label, icon, children, accent, C, defaultOpen = false }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
+      <PdfLightbox />
+      <MugshotLightbox />
       <button onClick={() => setOpen(!open)} style={{
         width: '100%', background: open ? C.cardHover : C.card,
         border: 'none', cursor: 'pointer', padding: '12px 16px',
@@ -217,6 +219,17 @@ function CaseDashboard() {
   const [checkCooldown, setCheckCooldown] = useState(0);    // seconds remaining before Check for Updates re-enables
   const [buildStatus,   setBuildStatus]   = useState('idle'); // idle|loading|ok|err
   const [buildMsg2,     setBuildMsg2]     = useState(null);
+  const [lightboxPdf, setLightboxPdf] = useState({ open: false, url: null, title: null, altUrl: null, altTitle: null });
+  const [lightboxImg, setLightboxImg] = useState(false);
+  const closePdf = () => setLightboxPdf({ open: false, url: null, title: null, altUrl: null, altTitle: null });
+  const openPdf  = (docket, type = 'docket') => setLightboxPdf({
+    open: true,
+    url:      `./assets/pdfs/${docket}-${type}.pdf`,
+    title:    type === 'docket' ? 'Docket Sheet' : 'Court Summary',
+    altUrl:   `./assets/pdfs/${docket}-${type === 'docket' ? 'summary' : 'docket'}.pdf`,
+    altTitle: type === 'docket' ? 'Court Summary' : 'Docket Sheet',
+    docket,
+  });
 
   // ── Owner mode (hidden controls revealer) ──────────────────────────────────
   // Desktop: Ctrl+Shift+U toggles. Mobile: 5 rapid taps on the footer source line.
@@ -496,8 +509,13 @@ function CaseDashboard() {
             </div>
           ) : (
             <div style={{ textAlign:'center', padding:'24px 20px', color:C.textDim }}>
-              <div style={{ fontSize:32, marginBottom:10 }}>🔍</div>
-              <div style={{ fontSize:13 }}>Hit <strong style={{ color:C.blue }}>Check for Updates</strong> to load the last workflow result, or <strong style={{ color:C.gold }}>Run Status Check</strong> to trigger a fresh query.</div>
+              <div style={{ fontSize:40, marginBottom:12, textAlign:'center' }}>🔍</div>
+              <div style={{ fontSize:13, textAlign:'center', lineHeight:1.7 }}>
+                {ownerMode
+                  ? <><strong style={{ color:C.blue }}>Check for Updates</strong> loads the last known status. <strong style={{ color:C.gold }}>Run Status Check</strong> triggers a fresh lookup.</>
+                  : <><strong style={{ color:C.blue }}>Check for Updates</strong> loads the current status.</>
+                }
+              </div>
             </div>
           )}
         </div>
@@ -701,7 +719,68 @@ function CaseDashboard() {
                         : s==='Discharged' ? '✅ DISCHARGED · '+dt
                         : '🔒 IN CUSTODY · 6/16/2026';
               const clr = s==='Inmate' ? C.red : s==='Parolee' ? C.gold : s==='Discharged' ? C.green : C.red;
-              return (
+            
+  // ── PDF Lightbox ─────────────────────────────────────────────────────────────
+  const PdfLightbox = () => !lightboxPdf.open ? null : (
+    <div onClick={closePdf} style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.88)', zIndex:9998, display:'flex', flexDirection:'column' }}>
+      {/* Header bar */}
+      <div onClick={e => e.stopPropagation()} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 16px', background:'#0A1520', borderBottom:'1px solid #1C3650', gap:12, flexWrap:'wrap' }}>
+        <span style={{ fontFamily:'Courier New, monospace', fontSize:12, color:'#8AAECE' }}>
+          {lightboxPdf.title} · {lightboxPdf.docket}
+        </span>
+        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+          {lightboxPdf.altUrl && (
+            <button onClick={() => setLightboxPdf(p => ({ ...p, url:p.altUrl, title:p.altTitle, altUrl:p.url, altTitle:p.title }))}
+              style={{ padding:'4px 10px', borderRadius:4, background:'none', border:'1px solid #1C3650', color:'#8AAECE', fontFamily:'Courier New, monospace', fontSize:11, cursor:'pointer' }}>
+              Switch to {lightboxPdf.altTitle}
+            </button>
+          )}
+          <a href={lightboxPdf.url} target="_blank" rel="noopener noreferrer"
+            style={{ padding:'4px 10px', borderRadius:4, background:'none', border:'1px solid #2A4D6E', color:'#4DB8FF', fontFamily:'Courier New, monospace', fontSize:11, textDecoration:'none' }}>
+            ↗ Open in tab
+          </a>
+          <button onClick={closePdf} style={{ background:'none', border:'none', color:'#fff', fontSize:22, cursor:'pointer', lineHeight:1, padding:'0 4px' }}>✕</button>
+        </div>
+      </div>
+      {/* Content */}
+      {isMobile ? (
+        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, padding:24 }}>
+          <div style={{ fontSize:40 }}>📄</div>
+          <div style={{ color:'#8AAECE', fontSize:13, textAlign:'center', lineHeight:1.7 }}>PDF viewing works best on desktop.<br />Tap below to open in a new tab.</div>
+          <a href={lightboxPdf.url} target="_blank" rel="noopener noreferrer"
+            style={{ padding:'12px 28px', background:'#1A3D6E', color:'#4DB8FF', borderRadius:8, textDecoration:'none', fontFamily:'Courier New, monospace', fontSize:13, border:'1px solid #2A4D6E' }}>
+            Open {lightboxPdf.title} ↗
+          </a>
+          {lightboxPdf.altUrl && (
+            <a href={lightboxPdf.altUrl} target="_blank" rel="noopener noreferrer"
+              style={{ padding:'10px 24px', background:'none', color:'#8AAECE', borderRadius:8, textDecoration:'none', fontFamily:'Courier New, monospace', fontSize:12, border:'1px solid #1C3650' }}>
+              Open {lightboxPdf.altTitle} ↗
+            </a>
+          )}
+        </div>
+      ) : (
+        <iframe src={lightboxPdf.url} title={lightboxPdf.title} onClick={e => e.stopPropagation()}
+          style={{ flex:1, border:'none', width:'100%', background:'#111' }} />
+      )}
+    </div>
+  );
+
+  // ── Mugshot Lightbox ──────────────────────────────────────────────────────────
+  const MugshotLightbox = () => !lightboxImg ? null : (
+    <div onClick={() => setLightboxImg(false)} style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.93)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out' }}>
+      <img src={MUGSHOT} alt="PA DOC official photo"
+        style={{ maxWidth:'88vw', maxHeight:'88vh', objectFit:'contain', borderRadius:6, boxShadow:'0 0 60px rgba(0,0,0,0.9)' }} />
+      <button onClick={() => setLightboxImg(false)}
+        style={{ position:'absolute', top:16, right:16, background:'rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.2)', color:'#fff', fontSize:20, cursor:'pointer', borderRadius:6, padding:'4px 12px', fontFamily:'Courier New, monospace' }}>
+        ✕
+      </button>
+      <div style={{ position:'absolute', bottom:20, color:'rgba(255,255,255,0.4)', fontSize:11, fontFamily:'Courier New, monospace' }}>
+        PA DOC Official Photo · PE1239 · Updated 6/1/2026
+      </div>
+    </div>
+  );
+
+  return (
                 <span style={{ padding:'5px 14px', borderRadius:99, fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:1,
                   background:clr+'22', color:clr, border:'2px solid '+clr+'88', boxShadow:'0 0 10px '+clr+'44' }}>
                   {lbl}
@@ -734,7 +813,7 @@ function CaseDashboard() {
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr', gap: 16, alignItems: 'start' }}>
                         <div style={{ textAlign: 'center', ...(isMobile && { display: 'flex', flexDirection: 'column', alignItems: 'center' }) }}>
                           <div style={{ border: `2px solid ${C.blue}55`, borderRadius: 8, overflow: 'hidden', width: 130, background: C.surface, boxShadow: C.shadow }}>
-                            <img src={MUGSHOT} alt="PA DOC official photo" style={{ width: '100%', display: 'block' }} />
+                            <img src={MUGSHOT} alt="PA DOC official photo" onClick={() => setLightboxImg(true)} style={{ width:'100%', display:'block', cursor:'zoom-in' }} />
                           </div>
                           <div style={{ fontFamily: C.mono, fontSize: 9, color: C.textDim, marginTop: 6, lineHeight: 1.4 }}>
                             PA DOC OFFICIAL PHOTO<br/>Taken: 6/1/2026 · 9:35:05 AM
@@ -907,6 +986,8 @@ function CaseDashboard() {
 
         {/* ══ CHARGES ═════════════════════════════════════════════════════════ */}
         <Section title="Charges & Sentencing" icon="📋" C={C}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14, alignItems:'center' }}><span style={{ fontFamily:C.mono, fontSize:10, color:C.textDim, letterSpacing:1 }}>CASE DOCUMENTS · CP-54-CR-0000435-2021</span><button onClick={()=>openPdf('CP-54-CR-0000435-2021','docket')} style={{ fontFamily:C.mono, fontSize:10, color:C.blue, background:C.blueFaint, border:'1px solid '+C.blue+'44', borderRadius:4, padding:'3px 8px', cursor:'pointer' }}>📄 Docket Sheet</button><button onClick={()=>openPdf('CP-54-CR-0000435-2021','summary')} style={{ fontFamily:C.mono, fontSize:10, color:C.blue, background:C.blueFaint, border:'1px solid '+C.blue+'44', borderRadius:4, padding:'3px 8px', cursor:'pointer' }}>🏛 Court Summary</button><button onClick={()=>openPdf('CP-54-CR-0000437-2021','docket')} style={{ fontFamily:C.mono, fontSize:10, color:C.textSub, background:C.surface, border:'1px solid '+C.border, borderRadius:4, padding:'3px 8px', cursor:'pointer' }}>📄 Concurrent Case</button></div>
+        
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflowX: 'auto', boxShadow: C.shadow }}>
             <div style={{ display: 'grid', gridTemplateColumns: '28px 42px 1fr 100px 105px 105px', gap: 10, padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`, minWidth: 560 }}>
               {['#','GRD','Charge / Statute','Structure','Minimum','Maximum'].map(h => (
@@ -1003,7 +1084,7 @@ function CaseDashboard() {
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: pc.highlight ? C.red : C.text }}>{pc.charge}</div>
-                  <div style={{ marginTop: 4 }}><DocketLink docket={pc.docket} C={C} /></div>
+                  <div style={{ marginTop: 4 }}><DocketLink docket={pc.docket} C={C} /><div style={{ display:'flex', gap:4, marginTop:5 }}><button onClick={()=>openPdf(pc.docket,'docket')} style={{ fontFamily:C.mono, fontSize:9, color:C.textSub, background:C.surface, border:'1px solid '+C.border, borderRadius:3, padding:'2px 6px', cursor:'pointer' }}>📄 Docket</button><button onClick={()=>openPdf(pc.docket,'summary')} style={{ fontFamily:C.mono, fontSize:9, color:C.textSub, background:C.surface, border:'1px solid '+C.border, borderRadius:3, padding:'2px 6px', cursor:'pointer' }}>🏛 Summary</button></div></div>
                 </div>
                 <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.4 }}>{pc.outcome}</div>
               </div>
