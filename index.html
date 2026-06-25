@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Commonwealth v. Chattin — Case Dashboard</title>
+  <title>PA DOC Status Dashboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
@@ -19,14 +19,12 @@
 <body>
   <div id="loading">
     <div id="load-msg">⌛ Loading dashboard…</div>
-    <div style="font-size:11px;opacity:0.5;">Commonwealth v. Chattin · CP-54-CR-0000435-2021</div>
+    <div style="font-size:11px;opacity:0.5;">PA DOC Status Dashboard</div>
     <div id="err-detail" style="display:none;font-size:10px;color:#8AAECE;max-width:320px;line-height:1.6;text-align:center;word-break:break-all"></div>
   </div>
   <div id="root" style="display:none"></div>
 
   <script>
-    // MUST be first — catches React render errors and any other runtime errors
-    // that React 18 production mode silently swallows
     window.onerror = function(msg, src, line, col, error) {
       var el  = document.getElementById('loading');
       var msgEl = document.getElementById('load-msg');
@@ -40,18 +38,15 @@
     };
   </script>
 
-  <!-- React 18 (production build) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"
     onerror="document.getElementById('load-msg').style.color='#F06060';document.getElementById('load-msg').textContent='⚠ CDN blocked: react.production.min.js'"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
     onerror="document.getElementById('load-msg').style.color='#F06060';document.getElementById('load-msg').textContent='⚠ CDN blocked: react-dom.production.min.js'"></script>
 
-  <!-- Mugshot image data -->
   <script src="./mugshot-data.js"
     onerror="document.getElementById('load-msg').style.color='#F06060';document.getElementById('load-msg').textContent='⚠ Failed to load mugshot-data.js'"></script>
 
-  <!-- Pre-compiled dashboard (cache-busted with file size as version) -->
-  <script src="./chattin-case-dashboard.js?v=102429"
+  <script src="./chattin-case-dashboard.js?v=118729"
     onerror="document.getElementById('load-msg').style.color='#F06060';document.getElementById('load-msg').textContent='⚠ Failed to load chattin-case-dashboard.js'"></script>
 
   <script>
