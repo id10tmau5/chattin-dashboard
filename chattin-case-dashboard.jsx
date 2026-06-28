@@ -1,5 +1,8 @@
 const { useState, useEffect, useMemo, useRef } = React;
 
+// Absolute base URL for PDFs (needed for Google Docs Viewer on mobile)
+const PDF_BASE = 'https://id10tmau5.github.io/chattin-dashboard/';
+
 // ─── Theme Definitions ─────────────────────────────────────────────────────────
 const DARK = {
   bg:          '#091623', surface: '#0F2236', card: '#142B42', cardHover: '#1A3452',
@@ -108,17 +111,31 @@ const ProgressBar = ({ pct, color, height = 8, C }) => (
   </div>
 );
 
-const Section = ({ title, icon, children, accent, C }) => (
-  <div style={{ marginBottom: 24 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, borderBottom: `1px solid ${C.border}`, paddingBottom: 10 }}>
-      {icon && <span style={{ fontSize: 16 }}>{icon}</span>}
-      <span style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: accent || C.gold }}>
-        {title}
-      </span>
+const Section = ({ title, icon, children, accent, C, sectionKey, defaultOpen = true }) => {
+  const lsKey = sectionKey ? `chattin_sec_${sectionKey}` : null;
+  const [isOpen, setIsOpen] = useState(() => {
+    if (!lsKey) return true;
+    try { const s = localStorage.getItem(lsKey); return s !== null ? s === '1' : defaultOpen; }
+    catch { return defaultOpen; }
+  });
+  useEffect(() => {
+    if (!lsKey) return;
+    const h = (e) => { const next = e.detail === 'expand'; setIsOpen(next); try { localStorage.setItem(lsKey, next ? '1' : '0'); } catch {} };
+    window.addEventListener('chattin-sec-all', h);
+    return () => window.removeEventListener('chattin-sec-all', h);
+  }, []);
+  const toggle = () => { if (!lsKey) return; setIsOpen(o => { const next = !o; try { localStorage.setItem(lsKey, next ? '1' : '0'); } catch {} return next; }); };
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div onClick={lsKey ? toggle : undefined} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:isOpen?14:0, borderBottom:`1px solid ${C.border}`, paddingBottom:10, cursor:lsKey?'pointer':'default', userSelect:'none' }}>
+        {icon && <span style={{ fontSize: 16 }}>{icon}</span>}
+        <span style={{ fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:accent||C.gold }}>{title}</span>
+        {lsKey && <span style={{ marginLeft:'auto', color:C.textDim, fontSize:18, lineHeight:1, display:'inline-block', transform:isOpen?'rotate(0deg)':'rotate(-90deg)', transition:'transform 0.2s' }}>▾</span>}
+      </div>
+      {isOpen && children}
     </div>
-    {children}
-  </div>
-);
+  );
+};
 
 const Expand = ({ label, icon, children, accent, C, defaultOpen = false }) => {
   const [open, setOpen] = useState(defaultOpen);
@@ -217,6 +234,40 @@ function CaseDashboard() {
   const [checkCooldown, setCheckCooldown] = useState(0);    // seconds remaining before Check for Updates re-enables
   const [buildStatus,   setBuildStatus]   = useState('idle'); // idle|loading|ok|err
   const [buildMsg2,     setBuildMsg2]     = useState(null);
+  // ── Section collapse: Status Checker (custom div, not using Section component) ──
+  const [statusCheckerOpen, setStatusCheckerOpen] = useState(() => {
+    try { const s = localStorage.getItem('chattin_sec_status'); return s !== null ? s === '1' : true; }
+    catch { return true; }
+  });
+  useEffect(() => {
+    const h = (e) => { const next = e.detail === 'expand'; setStatusCheckerOpen(next); try { localStorage.setItem('chattin_sec_status', next ? '1' : '0'); } catch {} };
+    window.addEventListener('chattin-sec-all', h);
+    return () => window.removeEventListener('chattin-sec-all', h);
+  }, []);
+  const toggleStatusChecker = () => setStatusCheckerOpen(o => { const next = !o; try { localStorage.setItem('chattin_sec_status', next ? '1' : '0'); } catch {} return next; });
+
+  // ── Parole sub-sections ──────────────────────────────────────────────────────
+  const [againstOpen, setAgainstOpen] = useState(() => {
+    try { const s = localStorage.getItem('chattin_sec_against'); return s !== null ? s === '1' : false; } catch { return false; }
+  });
+  const [inFavorOpen, setInFavorOpen] = useState(() => {
+    try { const s = localStorage.getItem('chattin_sec_infavor'); return s !== null ? s === '1' : false; } catch { return false; }
+  });
+  useEffect(() => {
+    const h = (e) => {
+      const next = e.detail === 'expand';
+      setAgainstOpen(next); setInFavorOpen(next);
+      try { localStorage.setItem('chattin_sec_against', next ? '1' : '0'); localStorage.setItem('chattin_sec_infavor', next ? '1' : '0'); } catch {}
+    };
+    window.addEventListener('chattin-sec-all', h);
+    return () => window.removeEventListener('chattin-sec-all', h);
+  }, []);
+  const toggleAgainst = () => setAgainstOpen(o => { const next = !o; try { localStorage.setItem('chattin_sec_against', next ? '1' : '0'); } catch {} return next; });
+  const toggleInFavor = () => setInFavorOpen(o => { const next = !o; try { localStorage.setItem('chattin_sec_infavor', next ? '1' : '0'); } catch {} return next; });
+
+  // ── Expand / Collapse All ────────────────────────────────────────────────────
+  const expandAll  = () => window.dispatchEvent(new CustomEvent('chattin-sec-all', { detail: 'expand'   }));
+  const collapseAll = () => window.dispatchEvent(new CustomEvent('chattin-sec-all', { detail: 'collapse' }));
   const [lightboxPdf, setLightboxPdf] = useState({ open: false, url: null, title: null, altUrl: null, altTitle: null });
   const [lightboxImg, setLightboxImg] = useState(false);
   const closePdf = () => setLightboxPdf({ open: false, url: null, title: null, altUrl: null, altTitle: null });
@@ -385,26 +436,30 @@ function CaseDashboard() {
     return (
       <div style={{ marginBottom: 24 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, borderBottom:`1px solid ${C.border}`, paddingBottom:10 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div onClick={toggleStatusChecker} style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', userSelect:'none', borderBottom:`1px solid ${C.border}`, paddingBottom:10, marginBottom:statusCheckerOpen?14:0 }}>
             <span style={{ fontSize:16 }}>🔄</span>
             <span style={{ fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:C.green }}>DOC Status Checker</span>
+            {ownerMode && (
+            <button onClick={(e)=>{e.stopPropagation();setConfigOpen(o=>!o)}} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:0.5, padding:'2px 6px', borderRadius:4, textDecoration:configOpen?'none':'underline', marginLeft:'auto' }}>
+              ⚙ {configOpen ? 'close' : 'setup'}
+            </button>
+            )}
+            {!ownerMode && <span style={{ marginLeft:'auto', color:C.textDim, fontSize:18, lineHeight:1, display:'inline-block', transform:statusCheckerOpen?'rotate(0deg)':'rotate(-90deg)', transition:'transform 0.2s' }}>▾</span>}
           </div>
-          {ownerMode && (
-          <button onClick={() => setConfigOpen(o => !o)} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:0.5, padding:'2px 6px', borderRadius:4, textDecoration:configOpen?'none':'underline' }}>
-            ⚙ {configOpen ? 'close' : 'setup'}
-          </button>
-          )}
         </div>
 
         {ownerMode && configOpen && (
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'14px 16px', marginBottom:14 }}>
             <div style={{ fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:1.5, marginBottom:12 }}>CONFIGURATION</div>
+            <div style={{ fontSize:10, color:C.textDim, lineHeight:1.6, marginBottom:14, padding:'8px 10px', background:C.bg, borderRadius:6, border:`1px solid ${C.border}` }}>
+              Two different keys: the <span style={{ color:C.blue }}>GitHub token</span> lets this page trigger a check; the <span style={{ color:C.gold }}>Anthropic key</span> is what the check uses to look up status. They are not interchangeable.
+            </div>
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
-                Access Token <span style={{ color:C.textDim, fontSize:10 }}>(one-time setup · stored in browser only)</span>
+                <span style={{ color:C.blue }}>🔑 GitHub Access Token</span> <span style={{ color:C.textDim, fontSize:10 }}>— powers the "Run Status Check" button · stored in this browser only</span>
               </div>
               <div style={{ display:'flex', gap:8 }}>
-                <input type="password" placeholder="enter access token…" value={ghTokenInput} onChange={e => setGhTokenInput(e.target.value)}
+                <input type="password" placeholder="ghp_… or github_pat_…" value={ghTokenInput} onChange={e => setGhTokenInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSaveToken()}
                   style={{ flex:1, padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }} />
                 <button onClick={handleSaveToken} style={{ padding:'7px 14px', borderRadius:6, border:`1px solid ${C.green}`, background:tokenSaved ? C.green : C.greenFaint, color:tokenSaved ? '#fff' : C.green, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
@@ -414,10 +469,10 @@ function CaseDashboard() {
             </div>
             <div>
               <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
-                Update Service Key <span style={{ color:C.textDim, fontSize:10 }}>(optional · requires token above)</span>
+                <span style={{ color:C.gold }}>🤖 Anthropic API Key</span> <span style={{ color:C.textDim, fontSize:10 }}>— opens GitHub Secrets to update <code>ANTHROPIC_API_KEY</code></span>
               </div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                <input type="password" placeholder="enter new key…" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)}
+                <input type="password" placeholder="sk-ant-…" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleUpdateApiKey()}
                   style={{ flex:1, minWidth:160, padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }} />
                 <button onClick={handleUpdateApiKey} style={{ padding:'7px 14px', borderRadius:6, border:`1px solid ${C.gold}`, background:C.goldFaint, color:C.gold, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
@@ -429,6 +484,7 @@ function CaseDashboard() {
           </div>
         )}
 
+{statusCheckerOpen && (
         <div style={{ background:C.card, border:`2px solid ${C.green}44`, borderRadius:10, padding:'18px 20px' }}>
           <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
             <button onClick={handleLoadStatus} disabled={loadStatus === 'loading' || checkCooldown > 0} style={{
@@ -517,6 +573,7 @@ function CaseDashboard() {
             </div>
           )}
         </div>
+        )}
         <div style={{ marginTop:10, fontSize:11, color:C.textSub, lineHeight:1.7 }}>
           Official: <a href="https://inmatelocator.cor.pa.gov/" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>DOC Locator (PE1239)</a> · <a href="https://vinelink.dhs.gov/" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>VINELink</a> · <a href="https://vinelink.vineapps.com/state/PA" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>PA VINE</a>
         </div>
@@ -677,19 +734,18 @@ function CaseDashboard() {
       </div>
       {/* Content */}
       {isMobile ? (
-        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, padding:24 }}>
-          <div style={{ fontSize:40 }}>📄</div>
-          <div style={{ color:'#8AAECE', fontSize:13, textAlign:'center', lineHeight:1.7 }}>PDF viewing works best on desktop.<br />Tap below to open in a new tab.</div>
-          <a href={lightboxPdf.url} target="_blank" rel="noopener noreferrer"
-            style={{ padding:'12px 28px', background:'#1A3D6E', color:'#4DB8FF', borderRadius:8, textDecoration:'none', fontFamily:'Courier New, monospace', fontSize:13, border:'1px solid #2A4D6E' }}>
-            Open {lightboxPdf.title} ↗
-          </a>
-          {lightboxPdf.altUrl && (
-            <a href={lightboxPdf.altUrl} target="_blank" rel="noopener noreferrer"
-              style={{ padding:'10px 24px', background:'none', color:'#8AAECE', borderRadius:8, textDecoration:'none', fontFamily:'Courier New, monospace', fontSize:12, border:'1px solid #1C3650' }}>
-              Open {lightboxPdf.altTitle} ↗
+        <div onClick={e => e.stopPropagation()} style={{ flex:1, display:'flex', flexDirection:'column', background:'#111' }}>
+          {/* Google Docs Viewer renders the PDF inline on mobile (GitHub Pages forces download otherwise) */}
+          <iframe
+            src={`https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(PDF_BASE + lightboxPdf.url.replace('./',''))}`}
+            title={lightboxPdf.title}
+            style={{ flex:1, border:'none', width:'100%', background:'#111' }} />
+          <div style={{ padding:'8px 12px', textAlign:'center', borderTop:'1px solid #1C3650', background:'#0A1520' }}>
+            <a href={lightboxPdf.url} target="_blank" rel="noopener noreferrer"
+              style={{ color:'#8AAECE', fontFamily:'Courier New, monospace', fontSize:11, textDecoration:'none' }}>
+              Viewer not loading? Tap to download ↓
             </a>
-          )}
+          </div>
         </div>
       ) : (
         <iframe src={lightboxPdf.url} title={lightboxPdf.title} onClick={e => e.stopPropagation()}
@@ -805,10 +861,14 @@ function CaseDashboard() {
 
       <div style={{ padding: '24px 24px 0' }}>
 
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
+          <button onClick={expandAll} style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>⊞ Expand All</button>
+          <button onClick={collapseAll} style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>⊟ Collapse All</button>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 24, alignItems: "start" }}>
           <div>
             
-            <Section title="PA DOC Inmate Profile"
+            <Section title="PA DOC Inmate Profile" sectionKey="profile" defaultOpen={true}
              icon="🪪" accent={C.blue} C={C}>
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr', gap: 16, alignItems: 'start' }}>
                         <div style={{ textAlign: 'center', ...(isMobile && { display: 'flex', flexDirection: 'column', alignItems: 'center' }) }}>
@@ -862,7 +922,7 @@ function CaseDashboard() {
 
 
         {/* ══ SENTENCE STATUS ═════════════════════════════════════════════════ */}
-        <Section title="Sentence Status" icon="⏱️" C={C}>
+        <Section title="Sentence Status" sectionKey="sentence" defaultOpen={true} icon="⏱️" C={C}>
           <div style={{ background: C.greenFaint, border: `1px solid ${C.green}55`, borderRadius: 8, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 28 }}>✅</span>
             <div>
@@ -903,7 +963,7 @@ function CaseDashboard() {
 
 
         {/* ══ PAROLE PROJECTIONS ══════════════════════════════════════════════ */}
-        <Section title="Parole Release Projections" icon="📊" C={C}>
+        <Section title="Parole Release Projections" sectionKey="projections" defaultOpen={false} icon="📊" C={C}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', marginBottom: 14, boxShadow: C.shadow }}>
             {[
               { label: 'At Minimum (Jun 2026)',  pct: 20, color: C.red,    note: 'Low — violent offense + prior history at first hearing', days: daysPastMin, past: true, age: 35 },
@@ -936,18 +996,22 @@ function CaseDashboard() {
 
 
         {/* ══ PAROLE FACTORS ══════════════════════════════════════════════════ */}
-        <Section title="Parole Board Factor Analysis" icon="⚖️" C={C}>
+        <Section title="Parole Board Factor Analysis" sectionKey="factors" defaultOpen={false} icon="⚖️" C={C}>
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.red, letterSpacing: 1.5, marginBottom: 10 }}>▼ FACTORS WEIGHING AGAINST PAROLE</div>
-            {against.map(f => (
+            <div onClick={toggleAgainst} style={{ fontFamily:C.mono, fontSize:10, color:C.red, letterSpacing:1.5, marginBottom:againstOpen?10:0, cursor:'pointer', userSelect:'none', display:'flex', alignItems:'center' }}>
+              <span>{againstOpen ? '▼' : '▶'}</span>&nbsp;FACTORS WEIGHING AGAINST PAROLE
+            </div>
+            {againstOpen && against.map(f => (
               <Expand key={f.label} label={f.label} icon={<span style={{...wStyle(f.c)}}>{f.w}</span>} accent={f.c} C={C}>
                 <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7 }}>{f.detail}</div>
               </Expand>
             ))}
           </div>
           <div style={{ marginTop: 18 }}>
-            <div style={{ fontFamily: C.mono, fontSize: 10, color: C.green, letterSpacing: 1.5, marginBottom: 10 }}>▲ FACTORS WEIGHING IN FAVOR OF PAROLE</div>
-            {inFavor.map(f => (
+            <div onClick={toggleInFavor} style={{ fontFamily:C.mono, fontSize:10, color:C.green, letterSpacing:1.5, marginBottom:inFavorOpen?10:0, cursor:'pointer', userSelect:'none', display:'flex', alignItems:'center' }}>
+              <span>{inFavorOpen ? '▲' : '▶'}</span>&nbsp;FACTORS WEIGHING IN FAVOR OF PAROLE
+            </div>
+            {inFavorOpen && inFavor.map(f => (
               <Expand key={f.label} label={f.label} icon={<span style={{...wStyle(f.c)}}>{f.w}</span>} accent={f.c} C={C}>
                 <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7 }}>{f.detail}</div>
               </Expand>
@@ -958,7 +1022,7 @@ function CaseDashboard() {
 
 
         {/* ══ TIMELINE ════════════════════════════════════════════════════════ */}
-        <Section title="Case Timeline" icon="📅" C={C}>
+        <Section title="Case Timeline" sectionKey="timeline" defaultOpen={false} icon="📅" C={C}>
           <div style={{ position: 'relative' }}>
             <div style={{ position: 'absolute', left: 22, top: 24, bottom: 24, width: 2, background: `linear-gradient(to bottom, ${C.red}, ${C.gold}, ${C.purple}, ${C.green}, ${C.textDim})` }} />
             {tlEvents.map((ev, i) => (
@@ -985,7 +1049,7 @@ function CaseDashboard() {
 
 
         {/* ══ CHARGES ═════════════════════════════════════════════════════════ */}
-        <Section title="Charges & Sentencing" icon="📋" C={C}>
+        <Section title="Charges & Sentencing" sectionKey="charges" defaultOpen={false} icon="📋" C={C}>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14, alignItems:'center' }}><span style={{ fontFamily:C.mono, fontSize:10, color:C.textDim, letterSpacing:1 }}>CASE DOCUMENTS · CP-54-CR-0000435-2021</span><button onClick={()=>openPdf('CP-54-CR-0000435-2021','docket')} style={{ fontFamily:C.mono, fontSize:10, color:C.blue, background:C.blueFaint, border:'1px solid '+C.blue+'44', borderRadius:4, padding:'3px 8px', cursor:'pointer' }}>📄 Docket Sheet</button><button onClick={()=>openPdf('CP-54-CR-0000435-2021','summary')} style={{ fontFamily:C.mono, fontSize:10, color:C.blue, background:C.blueFaint, border:'1px solid '+C.blue+'44', borderRadius:4, padding:'3px 8px', cursor:'pointer' }}>🏛 Court Summary</button><button onClick={()=>openPdf('CP-54-CR-0000437-2021','docket')} style={{ fontFamily:C.mono, fontSize:10, color:C.textSub, background:C.surface, border:'1px solid '+C.border, borderRadius:4, padding:'3px 8px', cursor:'pointer' }}>📄 Concurrent Case</button></div>
         
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflowX: 'auto', boxShadow: C.shadow }}>
@@ -1025,7 +1089,7 @@ function CaseDashboard() {
 
 
         {/* ══ CASE BACKGROUND ════════════════════════════════════════════════ */}
-        <Section title="Case Background" icon="📖" C={C}>
+        <Section title="Case Background" sectionKey="background" defaultOpen={false} icon="📖" C={C}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', lineHeight: 1.7, fontSize: 13, color: C.textSub, boxShadow: C.shadow }}>
             <p style={{ marginTop: 0 }}>Chattin — who was under the influence of methamphetamine — broke into her grandmother's home in Pottsville and assaulted the victim with a deadly weapon, then stole her purse and cell phone, subsequently using the stolen access devices fraudulently. She also broke into a second residence and squatted there with an associate until located and arrested by Pottsville PD Officer Hamilton on January 18, 2021.</p>
             <p>The assault triggered a significant deterioration of the victim's cognitive health. The victim's dementia worsened in the aftermath and she subsequently required placement in assisted living — a direct consequence of Jackie's actions.</p>
@@ -1034,7 +1098,7 @@ function CaseDashboard() {
         </Section>
 
 {/* ══ PA SAVIN ══════════════════════════════════════════════════════ */}
-        <Section title="PA SAVIN — Automatic Custody Notifications" icon="🔔" accent={C.green} C={C}>
+        <Section title="PA SAVIN — Automatic Custody Notifications" sectionKey="savin" defaultOpen={false} icon="🔔" accent={C.green} C={C}>
           <div style={{ background: C.greenFaint, border: `2px solid ${C.green}55`, borderRadius: 10, padding: '18px 20px', marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: C.green, marginBottom: 8 }}>⭐ Most Important Action — Register for Automatic Alerts</div>
             <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7, marginBottom: 14 }}>
@@ -1070,7 +1134,7 @@ function CaseDashboard() {
 
 
         {/* ══ PRIOR RECORD ════════════════════════════════════════════════════ */}
-        <Section title="Prior Criminal Record" icon="📁" C={C}>
+        <Section title="Prior Criminal Record" sectionKey="prior" defaultOpen={false} icon="📁" C={C}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflowX: 'auto', boxShadow: C.shadow }}>
             <div style={{ display: 'grid', gridTemplateColumns: '60px 55px 1fr 140px', gap: 10, padding: '10px 16px', background: C.surface, borderBottom: `1px solid ${C.border}`, minWidth: 500 }}>
               {['Year','Age','Charge / Docket','Outcome'].map(h => <div key={h} style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1 }}>{h}</div>)}
@@ -1101,7 +1165,7 @@ function CaseDashboard() {
 
 
         {/* ══ FINANCIALS ══════════════════════════════════════════════════════ */}
-        <Section title="Financial Obligations" icon="💵" C={C}>
+        <Section title="Financial Obligations" sectionKey="financials" defaultOpen={false} icon="💵" C={C}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12, marginBottom: 14 }}>
             <StatCard label="Total Assessed"    value="$1,672.25" sub="Fines, fees, restitution"     accent={C.gold}   C={C} />
             <StatCard label="Total Paid"        value="$1,251.13" sub="Via ACT 84 + direct payments" accent={C.green}  C={C} />
@@ -1119,7 +1183,7 @@ function CaseDashboard() {
           </Expand>
         </Section>
 
-<Section title="PA Offense Grade Scale & Severity" icon="📏" accent={C.orange} C={C}>
+<Section title="PA Offense Grade Scale & Severity" sectionKey="grades" defaultOpen={false} icon="📏" accent={C.orange} C={C}>
           {/* Visual severity bar */}
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '18px 20px', marginBottom: 14, boxShadow: C.shadow }}>
             <div style={{ fontFamily: C.mono, fontSize: 10, color: C.textSub, letterSpacing: 1.5, marginBottom: 14 }}>SEVERITY SCALE — PENNSYLVANIA CRIMINAL CODE (18 Pa.C.S.)</div>
@@ -1172,7 +1236,7 @@ function CaseDashboard() {
 
 
         {/* ══ AGE PROFILE ═════════════════════════════════════════════════════ */}
-        <Section title="Subject Age Profile" icon="🎂" accent={C.purple} C={C}>
+        <Section title="Subject Age Profile" sectionKey="age" defaultOpen={false} icon="🎂" accent={C.purple} C={C}>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: 14 }}>
             <div style={{ background: C.card, border: `2px solid ${C.purple}44`, borderRadius: 10, padding: '18px', borderTop: `3px solid ${C.purple}`, boxShadow: C.shadow }}>
               <div style={{ fontFamily: C.mono, fontSize: 10, color: C.purple, letterSpacing: 2, marginBottom: 10 }}>SUBJECT</div>
@@ -1226,7 +1290,7 @@ function CaseDashboard() {
 
 
         {/* ══ BY THE NUMBERS ══════════════════════════════════════════════════ */}
-        <Section title="By the Numbers" icon="🔢" C={C}>
+        <Section title="By the Numbers" sectionKey="numbers" defaultOpen={false} icon="🔢" C={C}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
             <StatCard label="Inmate Number"   value="PE1239" sub="PA DOC permanent ID"           accent={C.blue}   C={C} />
             <StatCard label="Parole Number"   value="345JW"  sub="Active — Board processing"     accent={C.purple} C={C} />
@@ -1244,7 +1308,7 @@ function CaseDashboard() {
 
 
         {/* ══ RESOURCES ═══════════════════════════════════════════════════════ */}
-        <Section title="Official Resources & Source Documents" icon="🔗" accent={C.blue} C={C}>
+        <Section title="Official Resources & Source Documents" sectionKey="resources" defaultOpen={false} icon="🔗" accent={C.blue} C={C}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px', boxShadow: C.shadow }}>
               <div style={{ fontFamily: C.mono, fontSize: 10, color: C.gold, letterSpacing: 1.5, marginBottom: 12 }}>PRIMARY DOCUMENTS</div>

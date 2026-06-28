@@ -57,7 +57,7 @@ jobs:
             'https://api.anthropic.com/v1/messages',
             data=json.dumps(payload).encode('utf-8'),
             headers={'Content-Type': 'application/json',
-                     'Authorization': f'Bearer {api_key}',
+                     'x-api-key': api_key,
                      'anthropic-version': '2023-06-01'},
             method='POST'
           )

@@ -5,6 +5,9 @@ const {
   useRef
 } = React;
 
+// Absolute base URL for PDFs (needed for Google Docs Viewer on mobile)
+const PDF_BASE = 'https://id10tmau5.github.io/chattin-dashboard/';
+
 // ─── Theme Definitions ─────────────────────────────────────────────────────────
 const DARK = {
   bg: '#091623',
@@ -254,34 +257,83 @@ const Section = ({
   icon,
   children,
   accent,
-  C
-}) => /*#__PURE__*/React.createElement("div", {
-  style: {
-    marginBottom: 24
-  }
-}, /*#__PURE__*/React.createElement("div", {
-  style: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-    borderBottom: `1px solid ${C.border}`,
-    paddingBottom: 10
-  }
-}, icon && /*#__PURE__*/React.createElement("span", {
-  style: {
-    fontSize: 16
-  }
-}, icon), /*#__PURE__*/React.createElement("span", {
-  style: {
-    fontFamily: C.mono,
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: accent || C.gold
-  }
-}, title)), children);
+  C,
+  sectionKey,
+  defaultOpen = true
+}) => {
+  const lsKey = sectionKey ? `chattin_sec_${sectionKey}` : null;
+  const [isOpen, setIsOpen] = useState(() => {
+    if (!lsKey) return true;
+    try {
+      const s = localStorage.getItem(lsKey);
+      return s !== null ? s === '1' : defaultOpen;
+    } catch {
+      return defaultOpen;
+    }
+  });
+  useEffect(() => {
+    if (!lsKey) return;
+    const h = e => {
+      const next = e.detail === 'expand';
+      setIsOpen(next);
+      try {
+        localStorage.setItem(lsKey, next ? '1' : '0');
+      } catch {}
+    };
+    window.addEventListener('chattin-sec-all', h);
+    return () => window.removeEventListener('chattin-sec-all', h);
+  }, []);
+  const toggle = () => {
+    if (!lsKey) return;
+    setIsOpen(o => {
+      const next = !o;
+      try {
+        localStorage.setItem(lsKey, next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: lsKey ? toggle : undefined,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: isOpen ? 14 : 0,
+      borderBottom: `1px solid ${C.border}`,
+      paddingBottom: 10,
+      cursor: lsKey ? 'pointer' : 'default',
+      userSelect: 'none'
+    }
+  }, icon && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 16
+    }
+  }, icon), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: C.mono,
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: 2,
+      textTransform: 'uppercase',
+      color: accent || C.gold
+    }
+  }, title), lsKey && /*#__PURE__*/React.createElement("span", {
+    style: {
+      marginLeft: 'auto',
+      color: C.textDim,
+      fontSize: 18,
+      lineHeight: 1,
+      display: 'inline-block',
+      transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+      transition: 'transform 0.2s'
+    }
+  }, "▾")), isOpen && children);
+};
 const Expand = ({
   label,
   icon,
@@ -457,6 +509,86 @@ function CaseDashboard() {
   const [checkCooldown, setCheckCooldown] = useState(0); // seconds remaining before Check for Updates re-enables
   const [buildStatus, setBuildStatus] = useState('idle'); // idle|loading|ok|err
   const [buildMsg2, setBuildMsg2] = useState(null);
+  // ── Section collapse: Status Checker (custom div, not using Section component) ──
+  const [statusCheckerOpen, setStatusCheckerOpen] = useState(() => {
+    try {
+      const s = localStorage.getItem('chattin_sec_status');
+      return s !== null ? s === '1' : true;
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    const h = e => {
+      const next = e.detail === 'expand';
+      setStatusCheckerOpen(next);
+      try {
+        localStorage.setItem('chattin_sec_status', next ? '1' : '0');
+      } catch {}
+    };
+    window.addEventListener('chattin-sec-all', h);
+    return () => window.removeEventListener('chattin-sec-all', h);
+  }, []);
+  const toggleStatusChecker = () => setStatusCheckerOpen(o => {
+    const next = !o;
+    try {
+      localStorage.setItem('chattin_sec_status', next ? '1' : '0');
+    } catch {}
+    return next;
+  });
+
+  // ── Parole sub-sections ──────────────────────────────────────────────────────
+  const [againstOpen, setAgainstOpen] = useState(() => {
+    try {
+      const s = localStorage.getItem('chattin_sec_against');
+      return s !== null ? s === '1' : false;
+    } catch {
+      return false;
+    }
+  });
+  const [inFavorOpen, setInFavorOpen] = useState(() => {
+    try {
+      const s = localStorage.getItem('chattin_sec_infavor');
+      return s !== null ? s === '1' : false;
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    const h = e => {
+      const next = e.detail === 'expand';
+      setAgainstOpen(next);
+      setInFavorOpen(next);
+      try {
+        localStorage.setItem('chattin_sec_against', next ? '1' : '0');
+        localStorage.setItem('chattin_sec_infavor', next ? '1' : '0');
+      } catch {}
+    };
+    window.addEventListener('chattin-sec-all', h);
+    return () => window.removeEventListener('chattin-sec-all', h);
+  }, []);
+  const toggleAgainst = () => setAgainstOpen(o => {
+    const next = !o;
+    try {
+      localStorage.setItem('chattin_sec_against', next ? '1' : '0');
+    } catch {}
+    return next;
+  });
+  const toggleInFavor = () => setInFavorOpen(o => {
+    const next = !o;
+    try {
+      localStorage.setItem('chattin_sec_infavor', next ? '1' : '0');
+    } catch {}
+    return next;
+  });
+
+  // ── Expand / Collapse All ────────────────────────────────────────────────────
+  const expandAll = () => window.dispatchEvent(new CustomEvent('chattin-sec-all', {
+    detail: 'expand'
+  }));
+  const collapseAll = () => window.dispatchEvent(new CustomEvent('chattin-sec-all', {
+    detail: 'collapse'
+  }));
   const [lightboxPdf, setLightboxPdf] = useState({
     open: false,
     url: null,
@@ -721,10 +853,16 @@ function CaseDashboard() {
         paddingBottom: 10
       }
     }, /*#__PURE__*/React.createElement("div", {
+      onClick: toggleStatusChecker,
       style: {
         display: 'flex',
         alignItems: 'center',
-        gap: 10
+        gap: 10,
+        cursor: 'pointer',
+        userSelect: 'none',
+        borderBottom: `1px solid ${C.border}`,
+        paddingBottom: 10,
+        marginBottom: statusCheckerOpen ? 14 : 0
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
@@ -739,8 +877,11 @@ function CaseDashboard() {
         textTransform: 'uppercase',
         color: C.green
       }
-    }, "DOC Status Checker")), ownerMode && /*#__PURE__*/React.createElement("button", {
-      onClick: () => setConfigOpen(o => !o),
+    }, "DOC Status Checker"), ownerMode && /*#__PURE__*/React.createElement("button", {
+      onClick: e => {
+        e.stopPropagation();
+        setConfigOpen(o => !o);
+      },
       style: {
         background: 'none',
         border: 'none',
@@ -751,9 +892,20 @@ function CaseDashboard() {
         letterSpacing: 0.5,
         padding: '2px 6px',
         borderRadius: 4,
-        textDecoration: configOpen ? 'none' : 'underline'
+        textDecoration: configOpen ? 'none' : 'underline',
+        marginLeft: 'auto'
       }
-    }, "⚙ ", configOpen ? 'close' : 'setup')), ownerMode && configOpen && /*#__PURE__*/React.createElement("div", {
+    }, "⚙ ", configOpen ? 'close' : 'setup'), !ownerMode && /*#__PURE__*/React.createElement("span", {
+      style: {
+        marginLeft: 'auto',
+        color: C.textDim,
+        fontSize: 18,
+        lineHeight: 1,
+        display: 'inline-block',
+        transform: statusCheckerOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+        transition: 'transform 0.2s'
+      }
+    }, "▾"))), ownerMode && configOpen && /*#__PURE__*/React.createElement("div", {
       style: {
         background: C.surface,
         border: `1px solid ${C.border}`,
@@ -771,6 +923,25 @@ function CaseDashboard() {
       }
     }, "CONFIGURATION"), /*#__PURE__*/React.createElement("div", {
       style: {
+        fontSize: 10,
+        color: C.textDim,
+        lineHeight: 1.6,
+        marginBottom: 14,
+        padding: '8px 10px',
+        background: C.bg,
+        borderRadius: 6,
+        border: `1px solid ${C.border}`
+      }
+    }, "Two different keys: the ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.blue
+      }
+    }, "GitHub token"), " lets this page trigger a check; the ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.gold
+      }
+    }, "Anthropic key"), " is what the check uses to look up status. They are not interchangeable."), /*#__PURE__*/React.createElement("div", {
+      style: {
         marginBottom: 14
       }
     }, /*#__PURE__*/React.createElement("div", {
@@ -779,19 +950,23 @@ function CaseDashboard() {
         color: C.textSub,
         marginBottom: 5
       }
-    }, "Access Token ", /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.blue
+      }
+    }, "🔑 GitHub Access Token"), " ", /*#__PURE__*/React.createElement("span", {
       style: {
         color: C.textDim,
         fontSize: 10
       }
-    }, "(one-time setup · stored in browser only)")), /*#__PURE__*/React.createElement("div", {
+    }, "— powers the \"Run Status Check\" button · stored in this browser only")), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 8
       }
     }, /*#__PURE__*/React.createElement("input", {
       type: "password",
-      placeholder: "enter access token…",
+      placeholder: "ghp_… or github_pat_…",
       value: ghTokenInput,
       onChange: e => setGhTokenInput(e.target.value),
       onKeyDown: e => e.key === 'Enter' && handleSaveToken(),
@@ -825,12 +1000,16 @@ function CaseDashboard() {
         color: C.textSub,
         marginBottom: 5
       }
-    }, "Update Service Key ", /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.gold
+      }
+    }, "🤖 Anthropic API Key"), " ", /*#__PURE__*/React.createElement("span", {
       style: {
         color: C.textDim,
         fontSize: 10
       }
-    }, "(optional · requires token above)")), /*#__PURE__*/React.createElement("div", {
+    }, "— opens GitHub Secrets to update ", /*#__PURE__*/React.createElement("code", null, "ANTHROPIC_API_KEY"))), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 8,
@@ -838,7 +1017,7 @@ function CaseDashboard() {
       }
     }, /*#__PURE__*/React.createElement("input", {
       type: "password",
-      placeholder: "enter new key…",
+      placeholder: "sk-ant-…",
       value: apiKeyInput,
       onChange: e => setApiKeyInput(e.target.value),
       onKeyDown: e => e.key === 'Enter' && handleUpdateApiKey(),
@@ -873,7 +1052,7 @@ function CaseDashboard() {
         marginTop: 6,
         color: apiKeyMsg.startsWith('✓') ? C.green : C.red
       }
-    }, apiKeyMsg))), /*#__PURE__*/React.createElement("div", {
+    }, apiKeyMsg))), statusCheckerOpen && /*#__PURE__*/React.createElement("div", {
       style: {
         background: C.card,
         border: `2px solid ${C.green}44`,
@@ -1618,55 +1797,40 @@ function CaseDashboard() {
       padding: '0 4px'
     }
   }, "✕"))), isMobile ? /*#__PURE__*/React.createElement("div", {
+    onClick: e => e.stopPropagation(),
     style: {
       flex: 1,
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 16,
-      padding: 24
+      background: '#111'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("iframe", {
+    src: `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(PDF_BASE + lightboxPdf.url.replace('./', ''))}`,
+    title: lightboxPdf.title,
     style: {
-      fontSize: 40
+      flex: 1,
+      border: 'none',
+      width: '100%',
+      background: '#111'
     }
-  }, "📄"), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
-      color: '#8AAECE',
-      fontSize: 13,
+      padding: '8px 12px',
       textAlign: 'center',
-      lineHeight: 1.7
+      borderTop: '1px solid #1C3650',
+      background: '#0A1520'
     }
-  }, "PDF viewing works best on desktop.", /*#__PURE__*/React.createElement("br", null), "Tap below to open in a new tab."), /*#__PURE__*/React.createElement("a", {
+  }, /*#__PURE__*/React.createElement("a", {
     href: lightboxPdf.url,
     target: "_blank",
     rel: "noopener noreferrer",
     style: {
-      padding: '12px 28px',
-      background: '#1A3D6E',
-      color: '#4DB8FF',
-      borderRadius: 8,
-      textDecoration: 'none',
-      fontFamily: 'Courier New, monospace',
-      fontSize: 13,
-      border: '1px solid #2A4D6E'
-    }
-  }, "Open ", lightboxPdf.title, " ↗"), lightboxPdf.altUrl && /*#__PURE__*/React.createElement("a", {
-    href: lightboxPdf.altUrl,
-    target: "_blank",
-    rel: "noopener noreferrer",
-    style: {
-      padding: '10px 24px',
-      background: 'none',
       color: '#8AAECE',
-      borderRadius: 8,
-      textDecoration: 'none',
       fontFamily: 'Courier New, monospace',
-      fontSize: 12,
-      border: '1px solid #1C3650'
+      fontSize: 11,
+      textDecoration: 'none'
     }
-  }, "Open ", lightboxPdf.altTitle, " ↗")) : /*#__PURE__*/React.createElement("iframe", {
+  }, "Viewer not loading? Tap to download ↓"))) : /*#__PURE__*/React.createElement("iframe", {
     src: lightboxPdf.url,
     title: lightboxPdf.title,
     onClick: e => e.stopPropagation(),
@@ -1955,6 +2119,37 @@ function CaseDashboard() {
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      gap: 6,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: expandAll,
+    style: {
+      fontFamily: C.mono,
+      fontSize: 10,
+      color: C.textDim,
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 6,
+      padding: '4px 12px',
+      cursor: 'pointer'
+    }
+  }, "⊞ Expand All"), /*#__PURE__*/React.createElement("button", {
+    onClick: collapseAll,
+    style: {
+      fontFamily: C.mono,
+      fontSize: 10,
+      color: C.textDim,
+      background: C.surface,
+      border: `1px solid ${C.border}`,
+      borderRadius: 6,
+      padding: '4px 12px',
+      cursor: 'pointer'
+    }
+  }, "⊟ Collapse All")), /*#__PURE__*/React.createElement("div", {
+    style: {
       display: "grid",
       gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
       gap: 20,
@@ -1963,6 +2158,8 @@ function CaseDashboard() {
     }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Section, {
     title: "PA DOC Inmate Profile",
+    sectionKey: "profile",
+    defaultOpen: true,
     icon: "🪪",
     accent: C.blue,
     C: C
@@ -2128,6 +2325,8 @@ function CaseDashboard() {
     color: C.blue
   })))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(StatusCheckerWidget, null))), /*#__PURE__*/React.createElement(Section, {
     title: "Sentence Status",
+    sectionKey: "sentence",
+    defaultOpen: true,
     icon: "⏱️",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -2302,6 +2501,8 @@ function CaseDashboard() {
     C: C
   }))), /*#__PURE__*/React.createElement(Section, {
     title: "Parole Release Projections",
+    sectionKey: "projections",
+    defaultOpen: false,
     icon: "📊",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -2433,6 +2634,8 @@ function CaseDashboard() {
     }
   }, "Parole #345JW assigned + June 1 mugshot update shifts the near-term picture. She is actively in parole processing — a hearing may have already occurred or be imminent. The most likely near-term outcome is either a conditional grant or a denial with a future hearing date. ACT 84 payments through May 2026 confirm she remained incarcerated through last month."))), /*#__PURE__*/React.createElement(Section, {
     title: "Parole Board Factor Analysis",
+    sectionKey: "factors",
+    defaultOpen: false,
     icon: "⚖️",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -2440,14 +2643,19 @@ function CaseDashboard() {
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("div", {
+    onClick: toggleAgainst,
     style: {
       fontFamily: C.mono,
       fontSize: 10,
       color: C.red,
       letterSpacing: 1.5,
-      marginBottom: 10
+      marginBottom: againstOpen ? 10 : 0,
+      cursor: 'pointer',
+      userSelect: 'none',
+      display: 'flex',
+      alignItems: 'center'
     }
-  }, "▼ FACTORS WEIGHING AGAINST PAROLE"), against.map(f => /*#__PURE__*/React.createElement(Expand, {
+  }, /*#__PURE__*/React.createElement("span", null, againstOpen ? '▼' : '▶'), "\xA0FACTORS WEIGHING AGAINST PAROLE"), againstOpen && against.map(f => /*#__PURE__*/React.createElement(Expand, {
     key: f.label,
     label: f.label,
     icon: /*#__PURE__*/React.createElement("span", {
@@ -2468,14 +2676,19 @@ function CaseDashboard() {
       marginTop: 18
     }
   }, /*#__PURE__*/React.createElement("div", {
+    onClick: toggleInFavor,
     style: {
       fontFamily: C.mono,
       fontSize: 10,
       color: C.green,
       letterSpacing: 1.5,
-      marginBottom: 10
+      marginBottom: inFavorOpen ? 10 : 0,
+      cursor: 'pointer',
+      userSelect: 'none',
+      display: 'flex',
+      alignItems: 'center'
     }
-  }, "▲ FACTORS WEIGHING IN FAVOR OF PAROLE"), inFavor.map(f => /*#__PURE__*/React.createElement(Expand, {
+  }, /*#__PURE__*/React.createElement("span", null, inFavorOpen ? '▲' : '▶'), "\xA0FACTORS WEIGHING IN FAVOR OF PAROLE"), inFavorOpen && inFavor.map(f => /*#__PURE__*/React.createElement(Expand, {
     key: f.label,
     label: f.label,
     icon: /*#__PURE__*/React.createElement("span", {
@@ -2493,6 +2706,8 @@ function CaseDashboard() {
     }
   }, f.detail))))), /*#__PURE__*/React.createElement(Section, {
     title: "Case Timeline",
+    sectionKey: "timeline",
+    defaultOpen: false,
     icon: "📅",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -2593,6 +2808,8 @@ function CaseDashboard() {
     }
   }, ev.sub)))))), /*#__PURE__*/React.createElement(Section, {
     title: "Charges & Sentencing",
+    sectionKey: "charges",
+    defaultOpen: false,
     icon: "📋",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -2782,6 +2999,8 @@ function CaseDashboard() {
     }
   }, s))))))), /*#__PURE__*/React.createElement(Section, {
     title: "Case Background",
+    sectionKey: "background",
+    defaultOpen: false,
     icon: "📖",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -2809,6 +3028,8 @@ function CaseDashboard() {
     }
   }, "$1,100.00"), " was assessed for stolen property. The crime was driven by meth addiction — her prior record includes multiple drug possession cases stretching back to 2009."))), /*#__PURE__*/React.createElement(Section, {
     title: "PA SAVIN — Automatic Custody Notifications",
+    sectionKey: "savin",
+    defaultOpen: false,
     icon: "🔔",
     accent: C.green,
     C: C
@@ -2959,6 +3180,8 @@ function CaseDashboard() {
     }
   }, "How to register (3 options):"), /*#__PURE__*/React.createElement("br", null), "📱 ", /*#__PURE__*/React.createElement("strong", null, "App:"), " Download VINELink → Select Pennsylvania → Search PE1239 → Get Notified → add phone/email + 4-digit PIN", /*#__PURE__*/React.createElement("br", null), "📞 ", /*#__PURE__*/React.createElement("strong", null, "Phone:"), " Call 1-866-972-7284 and follow prompts", /*#__PURE__*/React.createElement("br", null), "🌐 ", /*#__PURE__*/React.createElement("strong", null, "Web:"), " vinelink.dhs.gov → Pennsylvania → PE1239 → Register")), /*#__PURE__*/React.createElement(Section, {
     title: "Prior Criminal Record",
+    sectionKey: "prior",
+    defaultOpen: false,
     icon: "📁",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -3099,6 +3322,8 @@ function CaseDashboard() {
     C: C
   }))), /*#__PURE__*/React.createElement(Section, {
     title: "Financial Obligations",
+    sectionKey: "financials",
+    defaultOpen: false,
     icon: "💵",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -3154,6 +3379,8 @@ function CaseDashboard() {
     }
   }, /*#__PURE__*/React.createElement("span", null, mo), /*#__PURE__*/React.createElement("span", null, amt)))))), /*#__PURE__*/React.createElement(Section, {
     title: "PA Offense Grade Scale & Severity",
+    sectionKey: "grades",
+    defaultOpen: false,
     icon: "📏",
     accent: C.orange,
     C: C
@@ -3366,6 +3593,8 @@ function CaseDashboard() {
     }
   }, "consecutive structure"), " (Seq 4 running after Seq 3 rather than at the same time) is the mechanism that stacks the sentences — taking the total from 30–72 months to 60–144 months. This is a judge's discretionary tool to increase total imprisonment beyond what any single charge would allow.")))), /*#__PURE__*/React.createElement(Section, {
     title: "Subject Age Profile",
+    sectionKey: "age",
+    defaultOpen: false,
     icon: "🎂",
     accent: C.purple,
     C: C
@@ -3592,6 +3821,8 @@ function CaseDashboard() {
     }
   }, ev.year)))))), /*#__PURE__*/React.createElement(Section, {
     title: "By the Numbers",
+    sectionKey: "numbers",
+    defaultOpen: false,
     icon: "🔢",
     C: C
   }, /*#__PURE__*/React.createElement("div", {
@@ -3662,6 +3893,8 @@ function CaseDashboard() {
     C: C
   }))), /*#__PURE__*/React.createElement(Section, {
     title: "Official Resources & Source Documents",
+    sectionKey: "resources",
+    defaultOpen: false,
     icon: "🔗",
     accent: C.blue,
     C: C
