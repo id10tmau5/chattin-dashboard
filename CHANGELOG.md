@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 
 ---
 
+## [1.1.0] — 2026-06-28
+
+### Fixed
+- **Anthropic API authentication (critical)** — `check-status.yml` was sending the API key via an `Authorization: Bearer <key>` header, which the Anthropic API rejects with `401 authentication_error: Invalid bearer token`. The Anthropic API authenticates with the `x-api-key` header. Switched the header; the daily and manual status checks now authenticate correctly.
+
+### Added
+- **Owner mode (hidden developer controls)** — The **Run Status Check** button, **⚙ setup** config panel, and **↻ compile** button are now hidden by default so non-owner viewers see only the status display and **Check for Updates**. Reveal/hide toggles via `Ctrl+Shift+U` (desktop) or 5 rapid taps on the footer source line (mobile). State persists in `localStorage`.
+- **Daily scheduled status check** — `check-status.yml` now runs automatically once daily at `07:00 UTC` via cron, in addition to the existing manual trigger.
+- **PDF court documents** — Docket numbers throughout the dashboard link to docket sheets and court summaries (16 PDFs across 8 cases). Opens an inline lightbox on desktop; on mobile, renders through Google Docs Viewer so PDFs display in-browser instead of force-downloading.
+- **Mugshot lightbox** — Clicking the inmate photo opens a fullscreen view.
+- **Dynamic status badge** — The header custody badge updates color and label (🔒 IN CUSTODY / 📋 ON PAROLE / ✅ DISCHARGED) based on the latest check result, with a matching row added to the Inmate Profile.
+- **Collapsible sections** — All 14 main sections collapse/expand individually with state saved to `localStorage`. **PA DOC Inmate Profile**, **DOC Status Checker**, and **Sentence Status** start expanded; the rest start collapsed. An **⊞ Expand All / ⊟ Collapse All** control toggles every section at once. The two Parole Board Factor Analysis subsections (Against / In Favor) are independently collapsible, collapsed by default.
+
+### Changed
+- **Page title** → `PA DOC Status Dashboard` (generic, no case/name reference).
+- **Status Checker copy** — Removed all GitHub/Actions/workflow references from user-facing text. Non-owner viewers see a single-sentence hint and a generic empty-state; owner mode shows full detail.
+- **Config field labels** — The two key fields are now clearly distinguished: 🔑 **GitHub Access Token** (triggers checks, stored in-browser) vs 🤖 **Anthropic API Key** (used by the check itself, stored in GitHub Secrets), with an explainer noting they are not interchangeable and format-hinting placeholders (`ghp_…` / `sk-ant-…`).
+- **README** — Rewritten for concision; fully reflects owner mode, PDFs, and the current architecture.
+
+---
+
 ## [1.0.2] — 2026-06-17
 
 ### Fixed
