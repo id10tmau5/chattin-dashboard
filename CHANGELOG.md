@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 
 ---
 
+## [1.2.0] — 2026-06-29
+
+### Changed
+- **Status check cost reduced ~65%** — `check-status.yml` now uses **Claude Haiku 4.5** instead of Sonnet 4.6 (roughly one-third the per-token price for a lookup-and-format task), caps web searches at **2** via `max_uses` (cutting both per-search fees and the input-token bloat from search results re-entering context), and trims `max_tokens` to 700. Typical run cost drops from ~$0.10 to roughly ~$0.03.
+- **Concise status notes** — The workflow prompt now requests a single-sentence `notes` field and a domain-only `sourcesChecked` list, with a server-side length clamp as a safety net. The dashboard renders notes in a fixed-height scrollable box and shows the technical sources list to owner mode only.
+- **DOC Status Checker layout** — The section title bar now spans full width (the owner-only ⚙ setup control moved down beside the action buttons). The references line (DOC Locator / VINELink / PA VINE) now collapses with the rest of the section instead of staying pinned.
+- **Two timestamps** — A user-facing **Last refreshed** time (when *Check for Updates* was last tapped, persisted across reloads) plus an owner-only **Last status check** time showing when the workflow last ran and whether it was automatic or manual.
+- **Inmate # / Parole # / SAVIN contact boxes** — Field values now sit to the right of their labels instead of underneath, filling the box width.
+- **PDF placement** — Docket Sheet and Court Summary PDF buttons now also appear at the top of the page and in the Official Resources section, in addition to the Charges section.
+- **Dark-mode contrast** — Brightened the secondary/dim text colors for readability in dark mode (light mode unchanged).
+- **Subject Age Profile** — Timeline labels now read *Optimistic Release / Likely Release / Pessimistic Release* (matching *Max Release*), and the subject's full middle name is shown.
+- **By the Numbers** — "Age at Max" relabeled "Age at Max Release" for clarity.
+- **Automatic Custody Notifications** — Section renamed from "PA SAVIN — Automatic Custody Notifications"; the VINE phone number is now tap-to-call (`tel:` link).
+- **Case Background** — Inserted "allegedly" before the intoxication description (third-hand account, not asserted as fact).
+
+### Fixed
+- **Effective Total row (mobile)** — Now stretches to the full table width on mobile, matching desktop, instead of clipping to the viewport.
+- **checkedBy labeling** — Scheduled runs now report "GitHub Actions (automatic daily)" vs "GitHub Actions (manual trigger)".
+
+---
+
 ## [1.1.0] — 2026-06-28
 
 ### Fixed
