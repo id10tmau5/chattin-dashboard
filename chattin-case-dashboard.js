@@ -29,8 +29,8 @@ const DARK = {
   purple: '#A888E8',
   purpleFaint: 'rgba(168,136,232,0.13)',
   text: '#DCE8F4',
-  textSub: '#8AAAC4',
-  textDim: '#3E6080',
+  textSub: '#A6C2DA',
+  textDim: '#6E92B4',
   mono: "'Courier New', Courier, monospace",
   shadow: '0 2px 8px rgba(0,0,0,0.4)',
   inputBg: '#0F2236'
@@ -497,6 +497,14 @@ function CaseDashboard() {
   const SECRET_NAME = 'ANTHROPIC_API_KEY';
   const [docStatus, setDocStatus] = useState(null);
   const [lastChecked, setLastChecked] = useState(null);
+  const [lastFetched, setLastFetched] = useState(() => {
+    try {
+      const v = localStorage.getItem('chattin_last_fetched');
+      return v ? new Date(v) : null;
+    } catch {
+      return null;
+    }
+  });
   const [loadStatus, setLoadStatus] = useState('idle'); // idle|loading|ok|err
   const [loadError, setLoadError] = useState(null);
   const [triggerStatus, setTriggerStatus] = useState('idle'); // idle|loading|ok|err
@@ -506,6 +514,13 @@ function CaseDashboard() {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [tokenSaved, setTokenSaved] = useState(false);
   const [apiKeyMsg, setApiKeyMsg] = useState(null);
+  const [ovrStatus, setOvrStatus] = useState('Inmate');
+  const [ovrLocation, setOvrLocation] = useState('');
+  const [ovrNotes, setOvrNotes] = useState('');
+  const [ovrBusy, setOvrBusy] = useState(false);
+  const [ovrMsg, setOvrMsg] = useState(null);
+  const [dbgBusy, setDbgBusy] = useState(false);
+  const [dbgMsg, setDbgMsg] = useState(null);
   const [checkCooldown, setCheckCooldown] = useState(0); // seconds remaining before Check for Updates re-enables
   const [buildStatus, setBuildStatus] = useState('idle'); // idle|loading|ok|err
   const [buildMsg2, setBuildMsg2] = useState(null);
@@ -700,11 +715,14 @@ function CaseDashboard() {
       const data = await resp.json();
       setDocStatus(data);
       if (data.lastChecked) setLastChecked(new Date(data.lastChecked));
+      const now = new Date();
+      setLastFetched(now);
       try {
         localStorage.setItem('docStatus_PE1239', JSON.stringify({
           data,
-          timestamp: new Date().toISOString()
+          timestamp: now.toISOString()
         }));
+        localStorage.setItem('chattin_last_fetched', now.toISOString());
       } catch (e) {}
       setLoadStatus('ok');
       setTimeout(() => setLoadStatus('idle'), 2500);
@@ -713,6 +731,84 @@ function CaseDashboard() {
       setLoadStatus('err');
     }
   };
+
+  // Reusable: dispatch check-status.yml with the given inputs. Handles the token
+  // guard, busy state, status messaging, and an optional Check-for-Updates cooldown.
+  const dispatchStatusWorkflow = async (inputs, {
+    okMsg,
+    cooldown = 0,
+    setMsg,
+    setBusy
+  }) => {
+    const token = getGhToken();
+    if (!token) {
+      setMsg('⚠ Enter your access token above first.');
+      setTimeout(() => setMsg(null), 5000);
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const resp = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_ID}/dispatches`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        },
+        body: JSON.stringify({
+          ref: 'main',
+          inputs
+        })
+      });
+      if (resp.status === 204) {
+        setMsg(okMsg);
+        if (cooldown) setCheckCooldown(cooldown);
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${resp.status}`);
+      }
+    } catch (err) {
+      setMsg('✕ ' + err.message);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setMsg(null), 8000);
+    }
+  };
+
+  // Owner manual override → writes the chosen status straight to status.json.
+  const handleManualOverride = () => dispatchStatusWorkflow({
+    mode: 'manual',
+    manual_status: ovrStatus,
+    manual_location: ovrLocation,
+    manual_notes: ovrNotes
+  }, {
+    okMsg: '✓ Override submitted — tap Check for Updates in ~30 seconds.',
+    cooldown: 30,
+    setMsg: setOvrMsg,
+    setBusy: setOvrBusy
+  });
+
+  // Owner debug scrape → runs the scrape AND commits debug/ (page text + screenshot) for review.
+  const handleScrapeDebug = () => dispatchStatusWorkflow({
+    mode: 'scrape-debug'
+  }, {
+    okMsg: '✓ Debug scrape running — commits debug/ for review in ~90s.',
+    cooldown: 90,
+    setMsg: setDbgMsg,
+    setBusy: setDbgBusy
+  });
+
+  // Owner cleanup → removes the committed debug/ folder from the repo.
+  const handleClearDebug = () => dispatchStatusWorkflow({
+    mode: 'clear-debug'
+  }, {
+    okMsg: '✓ Clearing debug/ from the repo…',
+    cooldown: 0,
+    setMsg: setDbgMsg,
+    setBusy: setDbgBusy
+  });
   const handleRunCheck = async () => {
     const token = getGhToken();
     if (!token) {
@@ -741,8 +837,8 @@ function CaseDashboard() {
       });
       if (resp.status === 204) {
         setTriggerStatus('ok');
-        setTriggerMsg('✓ Status check running — tap Check for Updates in about 45 seconds.');
-        setCheckCooldown(45);
+        setTriggerMsg('✓ Scrape running — installs a headless browser, so give it ~90 seconds, then tap Check for Updates.');
+        setCheckCooldown(90);
       } else {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.message || `HTTP ${resp.status}`);
@@ -844,15 +940,6 @@ function CaseDashboard() {
         marginBottom: 24
       }
     }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 14,
-        borderBottom: `1px solid ${C.border}`,
-        paddingBottom: 10
-      }
-    }, /*#__PURE__*/React.createElement("div", {
       onClick: toggleStatusChecker,
       style: {
         display: 'flex',
@@ -877,25 +964,7 @@ function CaseDashboard() {
         textTransform: 'uppercase',
         color: C.green
       }
-    }, "DOC Status Checker"), ownerMode && /*#__PURE__*/React.createElement("button", {
-      onClick: e => {
-        e.stopPropagation();
-        setConfigOpen(o => !o);
-      },
-      style: {
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        fontFamily: C.mono,
-        fontSize: 9,
-        color: C.textDim,
-        letterSpacing: 0.5,
-        padding: '2px 6px',
-        borderRadius: 4,
-        textDecoration: configOpen ? 'none' : 'underline',
-        marginLeft: 'auto'
-      }
-    }, "⚙ ", configOpen ? 'close' : 'setup'), !ownerMode && /*#__PURE__*/React.createElement("span", {
+    }, "DOC Status Checker"), /*#__PURE__*/React.createElement("span", {
       style: {
         marginLeft: 'auto',
         color: C.textDim,
@@ -905,7 +974,7 @@ function CaseDashboard() {
         transform: statusCheckerOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
         transition: 'transform 0.2s'
       }
-    }, "▾"))), ownerMode && configOpen && /*#__PURE__*/React.createElement("div", {
+    }, "▾")), ownerMode && configOpen && /*#__PURE__*/React.createElement("div", {
       style: {
         background: C.surface,
         border: `1px solid ${C.border}`,
@@ -932,15 +1001,11 @@ function CaseDashboard() {
         borderRadius: 6,
         border: `1px solid ${C.border}`
       }
-    }, "Two different keys: the ", /*#__PURE__*/React.createElement("span", {
+    }, "The ", /*#__PURE__*/React.createElement("span", {
       style: {
         color: C.blue
       }
-    }, "GitHub token"), " lets this page trigger a check; the ", /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: C.gold
-      }
-    }, "Anthropic key"), " is what the check uses to look up status. They are not interchangeable."), /*#__PURE__*/React.createElement("div", {
+    }, "GitHub token"), " lets this page trigger the status check (an automated headless scrape of the PA DOC locator) and submit manual overrides. Stored in this browser only."), /*#__PURE__*/React.createElement("div", {
       style: {
         marginBottom: 14
       }
@@ -994,7 +1059,12 @@ function CaseDashboard() {
         cursor: 'pointer',
         whiteSpace: 'nowrap'
       }
-    }, tokenSaved ? '✓ Saved' : 'Save Token'))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    }, tokenSaved ? '✓ Saved' : 'Save Token'))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        borderTop: `1px solid ${C.border}`,
+        paddingTop: 14
+      }
+    }, /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 11,
         color: C.textSub,
@@ -1002,28 +1072,24 @@ function CaseDashboard() {
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
-        color: C.gold
+        color: C.orange
       }
-    }, "🤖 Anthropic API Key"), " ", /*#__PURE__*/React.createElement("span", {
+    }, "🛠 Manual Status Override"), " ", /*#__PURE__*/React.createElement("span", {
       style: {
         color: C.textDim,
         fontSize: 10
       }
-    }, "— opens GitHub Secrets to update ", /*#__PURE__*/React.createElement("code", null, "ANTHROPIC_API_KEY"))), /*#__PURE__*/React.createElement("div", {
+    }, "— fallback when the automated scrape can't read the portal")), /*#__PURE__*/React.createElement("div", {
       style: {
-        display: 'flex',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
         gap: 8,
-        flexWrap: 'wrap'
+        marginBottom: 8
       }
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "password",
-      placeholder: "sk-ant-…",
-      value: apiKeyInput,
-      onChange: e => setApiKeyInput(e.target.value),
-      onKeyDown: e => e.key === 'Enter' && handleUpdateApiKey(),
+    }, /*#__PURE__*/React.createElement("select", {
+      value: ovrStatus,
+      onChange: e => setOvrStatus(e.target.value),
       style: {
-        flex: 1,
-        minWidth: 160,
         padding: '7px 10px',
         borderRadius: 6,
         border: `1px solid ${C.border}`,
@@ -1032,27 +1098,149 @@ function CaseDashboard() {
         fontFamily: C.mono,
         fontSize: 11
       }
-    }), /*#__PURE__*/React.createElement("button", {
-      onClick: handleUpdateApiKey,
+    }, ['Inmate', 'Parolee', 'Discharged', 'Unknown'].map(s => /*#__PURE__*/React.createElement("option", {
+      key: s,
+      value: s
+    }, s))), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      placeholder: "Location (optional)",
+      value: ovrLocation,
+      onChange: e => setOvrLocation(e.target.value),
       style: {
-        padding: '7px 14px',
+        padding: '7px 10px',
         borderRadius: 6,
-        border: `1px solid ${C.gold}`,
-        background: C.goldFaint,
-        color: C.gold,
+        border: `1px solid ${C.border}`,
+        background: C.card,
+        color: C.text,
+        fontFamily: C.mono,
+        fontSize: 11
+      }
+    })), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      placeholder: "Note (optional)",
+      value: ovrNotes,
+      onChange: e => setOvrNotes(e.target.value),
+      style: {
+        width: '100%',
+        boxSizing: 'border-box',
+        padding: '7px 10px',
+        borderRadius: 6,
+        border: `1px solid ${C.border}`,
+        background: C.card,
+        color: C.text,
+        fontFamily: C.mono,
+        fontSize: 11,
+        marginBottom: 8
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      onClick: handleManualOverride,
+      disabled: ovrBusy,
+      style: {
+        width: '100%',
+        padding: '8px 14px',
+        borderRadius: 6,
+        border: `1px solid ${C.orange}`,
+        background: ovrBusy ? C.surface : C.orangeFaint,
+        color: C.orange,
         fontFamily: C.mono,
         fontSize: 11,
         fontWeight: 700,
-        cursor: 'pointer',
-        whiteSpace: 'nowrap'
+        cursor: ovrBusy ? 'wait' : 'pointer'
       }
-    }, "↗ Manage Key")), apiKeyMsg && /*#__PURE__*/React.createElement("div", {
+    }, ovrBusy ? '⏳ Submitting…' : '🛠 Apply Override'), ovrMsg && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 11,
         marginTop: 6,
-        color: apiKeyMsg.startsWith('✓') ? C.green : C.red
+        color: ovrMsg.startsWith('✓') ? C.green : C.red
       }
-    }, apiKeyMsg))), statusCheckerOpen && /*#__PURE__*/React.createElement("div", {
+    }, ovrMsg), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: C.textDim,
+        lineHeight: 1.5,
+        marginTop: 8
+      }
+    }, "Writes the status directly via the same GitHub Action. A confident manual value won't be overwritten by an inconclusive automated scrape.")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        borderTop: `1px solid ${C.border}`,
+        paddingTop: 14,
+        marginTop: 14
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: C.textSub,
+        marginBottom: 5
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.blue
+      }
+    }, "🐞 Debug / Maintenance"), " ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.textDim,
+        fontSize: 10
+      }
+    }, "— for retuning the scraper if the portal changes")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: handleScrapeDebug,
+      disabled: dbgBusy,
+      style: {
+        flex: 1,
+        minWidth: 140,
+        padding: '8px 12px',
+        borderRadius: 6,
+        border: `1px solid ${C.blue}`,
+        background: dbgBusy ? C.surface : C.blueFaint,
+        color: C.blue,
+        fontFamily: C.mono,
+        fontSize: 11,
+        fontWeight: 700,
+        cursor: dbgBusy ? 'wait' : 'pointer'
+      }
+    }, "🐞 Scrape + Debug"), /*#__PURE__*/React.createElement("button", {
+      onClick: handleClearDebug,
+      disabled: dbgBusy,
+      style: {
+        flex: 1,
+        minWidth: 140,
+        padding: '8px 12px',
+        borderRadius: 6,
+        border: `1px solid ${C.red}`,
+        background: dbgBusy ? C.surface : C.redFaint,
+        color: C.red,
+        fontFamily: C.mono,
+        fontSize: 11,
+        fontWeight: 700,
+        cursor: dbgBusy ? 'wait' : 'pointer'
+      }
+    }, "🧹 Clear Debug")), dbgMsg && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        marginTop: 6,
+        color: dbgMsg.startsWith('✓') ? C.green : C.red
+      }
+    }, dbgMsg), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: C.textDim,
+        lineHeight: 1.5,
+        marginTop: 8
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.blue
+      }
+    }, "Scrape + Debug"), " runs a lookup and commits ", /*#__PURE__*/React.createElement("code", null, "debug/"), " (rendered page text + screenshot) so the result can be reviewed. ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.red
+      }
+    }, "Clear Debug"), " removes that folder once you're done. Normal runs never commit debug output."))), statusCheckerOpen && /*#__PURE__*/React.createElement("div", {
       style: {
         background: C.card,
         border: `2px solid ${C.green}44`,
@@ -1098,7 +1286,21 @@ function CaseDashboard() {
         cursor: triggerStatus === 'loading' ? 'wait' : 'pointer',
         flexShrink: 0
       }
-    }, triggerStatus === 'loading' ? '⏳ Triggering…' : triggerStatus === 'ok' ? '✓ Triggered!' : '⚡ Run Status Check')), triggerMsg && /*#__PURE__*/React.createElement("div", {
+    }, triggerStatus === 'loading' ? '⏳ Triggering…' : triggerStatus === 'ok' ? '✓ Triggered!' : '⚡ Run Status Check'), ownerMode && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setConfigOpen(o => !o),
+      style: {
+        padding: '10px 16px',
+        borderRadius: 8,
+        border: `1px solid ${C.border}`,
+        background: C.surface,
+        color: C.textSub,
+        fontFamily: C.mono,
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: 'pointer',
+        flexShrink: 0
+      }
+    }, "⚙ ", configOpen ? 'Close' : 'Setup')), triggerMsg && /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '9px 14px',
         borderRadius: 7,
@@ -1141,18 +1343,32 @@ function CaseDashboard() {
       style: {
         color: C.text
       }
-    }, "Check for Updates"), " loads the last known status instantly.")), lastChecked && /*#__PURE__*/React.createElement("div", {
+    }, "Check for Updates"), " loads the last known status instantly.")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 14
+      }
+    }, lastFetched && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: C.mono,
         fontSize: 10,
-        color: C.textDim,
-        marginBottom: 14,
-        display: 'inline-block',
+        color: C.textSub,
         padding: '4px 10px',
         background: C.surface,
         borderRadius: 5
       }
-    }, "Last workflow run: ", fmtTS(lastChecked), " ", docStatus?.checkedBy ? `· ${docStatus.checkedBy}` : ''), docStatus ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    }, "Last refreshed: ", fmtTS(lastFetched)), ownerMode && lastChecked && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: C.mono,
+        fontSize: 10,
+        color: C.textDim,
+        padding: '4px 10px',
+        background: C.surface,
+        borderRadius: 5
+      }
+    }, "Last status check: ", fmtTS(lastChecked), docStatus?.checkedBy ? ` · ${docStatus.checkedBy}` : '')), docStatus ? /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 10,
@@ -1193,21 +1409,25 @@ function CaseDashboard() {
         background: C.surface,
         border: `1px solid ${C.border}`,
         borderRadius: 8,
-        padding: '10px 12px'
+        padding: '10px 12px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 10
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 10,
         color: C.textSub,
         letterSpacing: 1,
-        fontFamily: C.mono,
-        marginBottom: 3
+        fontFamily: C.mono
       }
     }, k.toUpperCase()), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 13,
         fontWeight: 600,
-        color: C.text
+        color: C.text,
+        textAlign: 'right'
       }
     }, v)))), docStatus.notes && /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1218,13 +1438,21 @@ function CaseDashboard() {
         fontSize: 12,
         color: C.textSub,
         lineHeight: 1.7,
-        marginBottom: 10
+        marginBottom: 10,
+        maxHeight: ownerMode ? 180 : 140,
+        overflowY: 'auto'
       }
-    }, ownerMode ? docStatus.notes : docStatus.status === 'Unknown' ? 'No status check has run yet. Check back later.' : docStatus.notes), docStatus.sourcesChecked?.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, ownerMode ? docStatus.notes : docStatus.status === 'Unknown' ? 'The automated lookup could not confirm a current custody status. Use the official sources below to verify directly.' : docStatus.notes), ownerMode && docStatus.sourcesChecked?.length > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: C.mono,
         fontSize: 10,
-        color: C.textDim
+        color: C.textDim,
+        maxHeight: 90,
+        overflowY: 'auto',
+        background: C.surface,
+        border: `1px solid ${C.border}`,
+        borderRadius: 6,
+        padding: '8px 10px'
       }
     }, "Sources: ", docStatus.sourcesChecked.join(' · '))) : /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1256,7 +1484,7 @@ function CaseDashboard() {
       style: {
         color: C.blue
       }
-    }, "Check for Updates"), " loads the current status.")))), /*#__PURE__*/React.createElement("div", {
+    }, "Check for Updates"), " loads the current status."))), /*#__PURE__*/React.createElement("div", {
       style: {
         marginTop: 10,
         fontSize: 11,
@@ -1284,7 +1512,7 @@ function CaseDashboard() {
       style: {
         color: C.blue
       }
-    }, "PA VINE")));
+    }, "PA VINE"))));
   };
   const gradeC = g => g.startsWith('F2') ? C.red : g.startsWith('F3') ? C.orange : C.gold;
 
@@ -1626,21 +1854,21 @@ function CaseDashboard() {
   }, {
     age: 36,
     year: '2027',
-    label: 'Optimistic',
+    label: 'Optimistic Release',
     note: '~20–35%',
     color: C.textDim,
     future: true
   }, {
     age: 37,
     year: '2028',
-    label: 'Likely',
+    label: 'Likely Release',
     note: '~50–65%',
     color: C.textDim,
     future: true
   }, {
     age: 40,
     year: '2031',
-    label: 'Pessimistic',
+    label: 'Pessimistic Release',
     note: '~85%',
     color: C.textDim,
     future: true
@@ -2120,6 +2348,45 @@ function CaseDashboard() {
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
+      flexWrap: 'wrap',
+      gap: 8,
+      alignItems: 'center',
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: C.mono,
+      fontSize: 10,
+      color: C.textDim,
+      letterSpacing: 1
+    }
+  }, "CASE DOCUMENTS · CP-54-CR-0000435-2021"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf('CP-54-CR-0000435-2021', 'docket'),
+    style: {
+      fontFamily: C.mono,
+      fontSize: 11,
+      color: C.blue,
+      background: C.blueFaint,
+      border: `1px solid ${C.blue}44`,
+      borderRadius: 5,
+      padding: '4px 10px',
+      cursor: 'pointer'
+    }
+  }, "📄 Docket Sheet"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf('CP-54-CR-0000435-2021', 'summary'),
+    style: {
+      fontFamily: C.mono,
+      fontSize: 11,
+      color: C.blue,
+      background: C.blueFaint,
+      border: `1px solid ${C.blue}44`,
+      borderRadius: 5,
+      padding: '4px 10px',
+      cursor: 'pointer'
+    }
+  }, "🏛 Court Summary")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
       justifyContent: 'flex-end',
       gap: 6,
       marginBottom: 10
@@ -2248,7 +2515,7 @@ function CaseDashboard() {
     C: C
   }), /*#__PURE__*/React.createElement(InfoRow, {
     label: "AKAs",
-    value: "Jacqueline Chattin · Jacqueline E. Chattin",
+    value: "Jacqueline Chattin · Jacqueline Elizabeth Chattin",
     C: C
   }), /*#__PURE__*/React.createElement(InfoRow, {
     label: "Date of Birth",
@@ -2966,7 +3233,8 @@ function CaseDashboard() {
       justifyContent: 'space-between',
       alignItems: 'center',
       flexWrap: 'wrap',
-      gap: 8
+      gap: 8,
+      minWidth: 560
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3018,7 +3286,7 @@ function CaseDashboard() {
     style: {
       marginTop: 0
     }
-  }, "Chattin — who was under the influence of methamphetamine — broke into her grandmother's home in Pottsville and assaulted the victim with a deadly weapon, then stole her purse and cell phone, subsequently using the stolen access devices fraudulently. She also broke into a second residence and squatted there with an associate until located and arrested by Pottsville PD Officer Hamilton on January 18, 2021."), /*#__PURE__*/React.createElement("p", null, "The assault triggered a significant deterioration of the victim's cognitive health. The victim's dementia worsened in the aftermath and she subsequently required placement in assisted living — a direct consequence of Jackie's actions."), /*#__PURE__*/React.createElement("p", {
+  }, "Chattin — who was allegedly under the influence of methamphetamine — broke into her grandmother's home in Pottsville and assaulted the victim with a deadly weapon, then stole her purse and cell phone, subsequently using the stolen access devices fraudulently. She also broke into a second residence and squatted there with an associate until located and arrested by Pottsville PD Officer Hamilton on January 18, 2021."), /*#__PURE__*/React.createElement("p", null, "The assault triggered a significant deterioration of the victim's cognitive health. The victim's dementia worsened in the aftermath and she subsequently required placement in assisted living — a direct consequence of Jackie's actions."), /*#__PURE__*/React.createElement("p", {
     style: {
       marginBottom: 0
     }
@@ -3027,7 +3295,7 @@ function CaseDashboard() {
       color: C.gold
     }
   }, "$1,100.00"), " was assessed for stolen property. The crime was driven by meth addiction — her prior record includes multiple drug possession cases stretching back to 2009."))), /*#__PURE__*/React.createElement(Section, {
-    title: "PA SAVIN — Automatic Custody Notifications",
+    title: "Automatic Custody Notifications",
     sectionKey: "savin",
     defaultOpen: false,
     icon: "🔔",
@@ -3073,7 +3341,8 @@ function CaseDashboard() {
   }, [{
     label: 'VINE Toll-Free',
     value: '1-866-972-7284',
-    icon: '📞'
+    icon: '📞',
+    tel: '18669727284'
   }, {
     label: 'Inmate # to use',
     value: 'PE1239',
@@ -3092,20 +3361,34 @@ function CaseDashboard() {
       background: C.card,
       border: `1px solid ${C.border}`,
       borderRadius: 8,
-      padding: '10px 14px'
+      padding: '10px 14px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
-      color: C.textSub,
-      marginBottom: 4
+      color: C.textSub
     }
-  }, item.icon, " ", item.label), /*#__PURE__*/React.createElement("div", {
+  }, item.icon, " ", item.label), item.tel ? /*#__PURE__*/React.createElement("a", {
+    href: `tel:${item.tel}`,
     style: {
       fontFamily: C.mono,
       fontSize: 14,
       fontWeight: 700,
-      color: C.green
+      color: C.green,
+      textDecoration: 'none',
+      textAlign: 'right'
+    }
+  }, item.value) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: C.mono,
+      fontSize: 14,
+      fontWeight: 700,
+      color: C.green,
+      textAlign: 'right'
     }
   }, item.value)))), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3368,7 +3651,7 @@ function CaseDashboard() {
       fontFamily: C.mono,
       fontSize: 11
     }
-  }, [['Aug 2021', '$145.00'], ['Sep 2021', '$75.00'], ['Oct 2021', '$47.15'], ['Nov 2021', '$40.21'], ['Dec 2021', '$79.49'], ['Jan 2022', '$53.49'], ['Feb 2022', '$50.31'], ['Mar 2022', '$23.75'], ['Apr 2022', '$38.98'], ['Jun 2022', '$102.38'], ['Aug 2022', '$75.97'], ['Sep 2022', '$43.77'], ['Oct 2022', '$41.27'], ['Nov 2022', '$52.52'], ['Dec 2022', '$26.30'], ['Jan 2023', '$27.85'], ['Feb 2023', '$25.78'], ['Mar 2023', '$23.57'], ['Apr 2023', '$28.70'], ['May 2023', '$37.51'], ['Jun 2023', '$16.95'], ['Jul 2023', '$17.40'], ['Aug 2023', '$25.24'], ['Sep 2023', '$15.08'], ['Oct 2023', '$17.87'], ['Nov 2023', '$53.06'], ['Dec 2023', '$14.86'], ['Feb 2024', '$25.70'], ['Mar 2024', '$19.45'], ['Apr 2024', '$29.47'], ['May 2024', '$20.11'], ['Jun 2024', '$5.67'], ['Jul 2024', '$11.97'], ['Aug 2024', '$25.05'], ['Sep 2024', '$8.71'], ['Oct 2024', '$6.90'], ['Nov 2024', '$10.45'], ['Feb 2025', '$12.25'], ['Mar 2025', '$12.95'], ['Apr 2025', '$17.08'], ['May 2025', '$21.48'], ['Jun 2025', '$14.49'], ['Jul 2025', '$14.22'], ['Aug 2025', '$15.47'], ['Sep 2025', '$21.60'], ['Oct 2025', '$9.63'], ['Nov 2025', '$14.70'], ['Dec 2025', '$18.18'], ['Jan 2026', '$21.50'], ['Feb 2026', '$7.80'], ['Mar 2026', '$18.35'], ['Apr 2026', '$30.47'], ['May 2026', '$16.80 ← MOST RECENT']].map(([mo, amt]) => /*#__PURE__*/React.createElement("div", {
+  }, [['Aug 2021', '$145.00'], ['Sep 2021', '$75.00'], ['Oct 2021', '$47.15'], ['Nov 2021', '$40.21'], ['Dec 2021', '$79.49'], ['Jan 2022', '$53.49'], ['Feb 2022', '$50.31'], ['Mar 2022', '$23.75'], ['Apr 2022', '$38.98'], ['Jun 2022', '$102.38'], ['Aug 2022', '$75.97'], ['Sep 2022', '$43.77'], ['Oct 2022', '$41.27'], ['Nov 2022', '$52.52'], ['Dec 2022', '$26.30'], ['Jan 2023', '$27.85'], ['Feb 2023', '$25.78'], ['Mar 2023', '$23.57'], ['Apr 2023', '$28.70'], ['May 2023', '$37.51'], ['Jun 2023', '$16.95'], ['Jul 2023', '$17.40'], ['Aug 2023', '$25.24'], ['Sep 2023', '$15.08'], ['Oct 2023', '$17.87'], ['Nov 2023', '$53.06'], ['Dec 2023', '$14.86'], ['Feb 2024', '$25.70'], ['Mar 2024', '$19.45'], ['Apr 2024', '$29.47'], ['May 2024', '$20.11'], ['Jun 2024', '$5.67'], ['Jul 2024', '$11.97'], ['Aug 2024', '$25.05'], ['Sep 2024', '$8.71'], ['Oct 2024', '$6.90'], ['Nov 2024', '$10.45'], ['Feb 2025', '$12.25'], ['Mar 2025', '$12.95'], ['Apr 2025', '$17.08'], ['May 2025', '$21.48'], ['Jun 2025', '$14.49'], ['Jul 2025', '$14.22'], ['Aug 2025', '$15.47'], ['Sep 2025', '$21.60'], ['Oct 2025', '$9.63'], ['Nov 2025', '$14.70'], ['Dec 2025', '$18.18'], ['Jan 2026', '$21.50'], ['Feb 2026', '$7.80'], ['Mar 2026', '$18.35'], ['Apr 2026', '$30.47'], ['May 2026', '$16.80']].map(([mo, amt]) => /*#__PURE__*/React.createElement("div", {
     key: mo,
     style: {
       display: 'flex',
@@ -3627,7 +3910,7 @@ function CaseDashboard() {
       fontWeight: 800,
       color: C.text
     }
-  }, "Jacqueline E. Chattin"), /*#__PURE__*/React.createElement("div", {
+  }, "Jacqueline Elizabeth Chattin"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: C.mono,
       fontSize: 11,
@@ -3880,7 +4163,7 @@ function CaseDashboard() {
     accent: C.purple,
     C: C
   }), /*#__PURE__*/React.createElement(StatCard, {
-    label: "Age at Max",
+    label: "Age at Max Release",
     value: "42",
     sub: "If serves full 12 yrs",
     accent: C.blue,
@@ -3938,7 +4221,43 @@ function CaseDashboard() {
     docket: "CP-54-CR-0000437-2021",
     label: "Concurrent Case (2nd property)",
     C: C
-  }))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: `1px solid ${C.border}`,
+      margin: '4px 0 2px',
+      paddingTop: 8,
+      fontFamily: C.mono,
+      fontSize: 9,
+      color: C.textDim,
+      letterSpacing: 1
+    }
+  }, "PDF DOCUMENTS"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf('CP-54-CR-0000435-2021', 'docket'),
+    style: {
+      textAlign: 'left',
+      fontFamily: C.mono,
+      fontSize: 11,
+      color: C.blue,
+      background: C.blueFaint,
+      border: `1px solid ${C.blue}44`,
+      borderRadius: 6,
+      padding: '7px 10px',
+      cursor: 'pointer'
+    }
+  }, "📄 Docket Sheet (PDF)"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf('CP-54-CR-0000435-2021', 'summary'),
+    style: {
+      textAlign: 'left',
+      fontFamily: C.mono,
+      fontSize: 11,
+      color: C.blue,
+      background: C.blueFaint,
+      border: `1px solid ${C.blue}44`,
+      borderRadius: 6,
+      padding: '7px 10px',
+      cursor: 'pointer'
+    }
+  }, "🏛 Court Summary (PDF)"))), /*#__PURE__*/React.createElement("div", {
     style: {
       background: C.card,
       border: `1px solid ${C.border}`,

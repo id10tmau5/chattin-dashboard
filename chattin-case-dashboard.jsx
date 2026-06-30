@@ -13,7 +13,7 @@ const DARK = {
   green:       '#28C07A', greenFaint: 'rgba(40,192,122,0.13)',
   blue:        '#4AAEE4', blueFaint: 'rgba(74,174,228,0.13)',
   purple:      '#A888E8', purpleFaint: 'rgba(168,136,232,0.13)',
-  text:        '#DCE8F4', textSub: '#8AAAC4', textDim: '#3E6080',
+  text:        '#DCE8F4', textSub: '#A6C2DA', textDim: '#6E92B4',
   mono:        "'Courier New', Courier, monospace",
   shadow:      '0 2px 8px rgba(0,0,0,0.4)',
   inputBg:     '#0F2236',
@@ -222,6 +222,9 @@ function CaseDashboard() {
 
   const [docStatus,     setDocStatus]     = useState(null);
   const [lastChecked,   setLastChecked]   = useState(null);
+  const [lastFetched,   setLastFetched]   = useState(() => {
+    try { const v = localStorage.getItem('chattin_last_fetched'); return v ? new Date(v) : null; } catch { return null; }
+  });
   const [loadStatus,    setLoadStatus]    = useState('idle');  // idle|loading|ok|err
   const [loadError,     setLoadError]     = useState(null);
   const [triggerStatus, setTriggerStatus] = useState('idle'); // idle|loading|ok|err
@@ -231,6 +234,13 @@ function CaseDashboard() {
   const [apiKeyInput,   setApiKeyInput]   = useState('');
   const [tokenSaved,    setTokenSaved]    = useState(false);
   const [apiKeyMsg,     setApiKeyMsg]     = useState(null);
+  const [ovrStatus,     setOvrStatus]     = useState('Inmate');
+  const [ovrLocation,   setOvrLocation]   = useState('');
+  const [ovrNotes,      setOvrNotes]      = useState('');
+  const [ovrBusy,       setOvrBusy]       = useState(false);
+  const [ovrMsg,        setOvrMsg]        = useState(null);
+  const [dbgBusy,       setDbgBusy]       = useState(false);
+  const [dbgMsg,        setDbgMsg]        = useState(null);
   const [checkCooldown, setCheckCooldown] = useState(0);    // seconds remaining before Check for Updates re-enables
   const [buildStatus,   setBuildStatus]   = useState('idle'); // idle|loading|ok|err
   const [buildMsg2,     setBuildMsg2]     = useState(null);
@@ -348,11 +358,65 @@ function CaseDashboard() {
       const data = await resp.json();
       setDocStatus(data);
       if (data.lastChecked) setLastChecked(new Date(data.lastChecked));
-      try { localStorage.setItem('docStatus_PE1239', JSON.stringify({ data, timestamp: new Date().toISOString() })); } catch (e) {}
+      const now = new Date();
+      setLastFetched(now);
+      try {
+        localStorage.setItem('docStatus_PE1239', JSON.stringify({ data, timestamp: now.toISOString() }));
+        localStorage.setItem('chattin_last_fetched', now.toISOString());
+      } catch (e) {}
       setLoadStatus('ok');
       setTimeout(() => setLoadStatus('idle'), 2500);
     } catch (err) { setLoadError(err.message); setLoadStatus('err'); }
   };
+
+  // Reusable: dispatch check-status.yml with the given inputs. Handles the token
+  // guard, busy state, status messaging, and an optional Check-for-Updates cooldown.
+  const dispatchStatusWorkflow = async (inputs, { okMsg, cooldown = 0, setMsg, setBusy }) => {
+    const token = getGhToken();
+    if (!token) {
+      setMsg('⚠ Enter your access token above first.');
+      setTimeout(() => setMsg(null), 5000); return;
+    }
+    setBusy(true); setMsg(null);
+    try {
+      const resp = await fetch(
+        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_ID}/dispatches`,
+        { method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+          body: JSON.stringify({ ref: 'main', inputs }) }
+      );
+      if (resp.status === 204) {
+        setMsg(okMsg);
+        if (cooldown) setCheckCooldown(cooldown);
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${resp.status}`);
+      }
+    } catch (err) {
+      setMsg('✕ ' + err.message);
+    } finally {
+      setBusy(false);
+      setTimeout(() => setMsg(null), 8000);
+    }
+  };
+
+  // Owner manual override → writes the chosen status straight to status.json.
+  const handleManualOverride = () => dispatchStatusWorkflow(
+    { mode: 'manual', manual_status: ovrStatus, manual_location: ovrLocation, manual_notes: ovrNotes },
+    { okMsg: '✓ Override submitted — tap Check for Updates in ~30 seconds.', cooldown: 30, setMsg: setOvrMsg, setBusy: setOvrBusy }
+  );
+
+  // Owner debug scrape → runs the scrape AND commits debug/ (page text + screenshot) for review.
+  const handleScrapeDebug = () => dispatchStatusWorkflow(
+    { mode: 'scrape-debug' },
+    { okMsg: '✓ Debug scrape running — commits debug/ for review in ~90s.', cooldown: 90, setMsg: setDbgMsg, setBusy: setDbgBusy }
+  );
+
+  // Owner cleanup → removes the committed debug/ folder from the repo.
+  const handleClearDebug = () => dispatchStatusWorkflow(
+    { mode: 'clear-debug' },
+    { okMsg: '✓ Clearing debug/ from the repo…', cooldown: 0, setMsg: setDbgMsg, setBusy: setDbgBusy }
+  );
 
   const handleRunCheck = async () => {
     const token = getGhToken();
@@ -368,8 +432,8 @@ function CaseDashboard() {
       );
       if (resp.status === 204) {
         setTriggerStatus('ok');
-        setTriggerMsg('✓ Status check running — tap Check for Updates in about 45 seconds.');
-        setCheckCooldown(45);
+        setTriggerMsg('✓ Scrape running — installs a headless browser, so give it ~90 seconds, then tap Check for Updates.');
+        setCheckCooldown(90);
       } else {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.message || `HTTP ${resp.status}`);
@@ -435,24 +499,17 @@ function CaseDashboard() {
     };
     return (
       <div style={{ marginBottom: 24 }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, borderBottom:`1px solid ${C.border}`, paddingBottom:10 }}>
-          <div onClick={toggleStatusChecker} style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', userSelect:'none', borderBottom:`1px solid ${C.border}`, paddingBottom:10, marginBottom:statusCheckerOpen?14:0 }}>
-            <span style={{ fontSize:16 }}>🔄</span>
-            <span style={{ fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:C.green }}>DOC Status Checker</span>
-            {ownerMode && (
-            <button onClick={(e)=>{e.stopPropagation();setConfigOpen(o=>!o)}} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:0.5, padding:'2px 6px', borderRadius:4, textDecoration:configOpen?'none':'underline', marginLeft:'auto' }}>
-              ⚙ {configOpen ? 'close' : 'setup'}
-            </button>
-            )}
-            {!ownerMode && <span style={{ marginLeft:'auto', color:C.textDim, fontSize:18, lineHeight:1, display:'inline-block', transform:statusCheckerOpen?'rotate(0deg)':'rotate(-90deg)', transition:'transform 0.2s' }}>▾</span>}
-          </div>
+        <div onClick={toggleStatusChecker} style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer', userSelect:'none', borderBottom:`1px solid ${C.border}`, paddingBottom:10, marginBottom:statusCheckerOpen?14:0 }}>
+          <span style={{ fontSize:16 }}>🔄</span>
+          <span style={{ fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:C.green }}>DOC Status Checker</span>
+          <span style={{ marginLeft:'auto', color:C.textDim, fontSize:18, lineHeight:1, display:'inline-block', transform:statusCheckerOpen?'rotate(0deg)':'rotate(-90deg)', transition:'transform 0.2s' }}>▾</span>
         </div>
 
         {ownerMode && configOpen && (
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'14px 16px', marginBottom:14 }}>
             <div style={{ fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:1.5, marginBottom:12 }}>CONFIGURATION</div>
             <div style={{ fontSize:10, color:C.textDim, lineHeight:1.6, marginBottom:14, padding:'8px 10px', background:C.bg, borderRadius:6, border:`1px solid ${C.border}` }}>
-              Two different keys: the <span style={{ color:C.blue }}>GitHub token</span> lets this page trigger a check; the <span style={{ color:C.gold }}>Anthropic key</span> is what the check uses to look up status. They are not interchangeable.
+              The <span style={{ color:C.blue }}>GitHub token</span> lets this page trigger the status check (an automated headless scrape of the PA DOC locator) and submit manual overrides. Stored in this browser only.
             </div>
             <div style={{ marginBottom:14 }}>
               <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
@@ -467,19 +524,47 @@ function CaseDashboard() {
                 </button>
               </div>
             </div>
-            <div>
+            <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14 }}>
               <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
-                <span style={{ color:C.gold }}>🤖 Anthropic API Key</span> <span style={{ color:C.textDim, fontSize:10 }}>— opens GitHub Secrets to update <code>ANTHROPIC_API_KEY</code></span>
+                <span style={{ color:C.orange }}>🛠 Manual Status Override</span> <span style={{ color:C.textDim, fontSize:10 }}>— fallback when the automated scrape can't read the portal</span>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                <select value={ovrStatus} onChange={e => setOvrStatus(e.target.value)}
+                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }}>
+                  {['Inmate','Parolee','Discharged','Unknown'].map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <input type="text" placeholder="Location (optional)" value={ovrLocation} onChange={e => setOvrLocation(e.target.value)}
+                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }} />
+              </div>
+              <input type="text" placeholder="Note (optional)" value={ovrNotes} onChange={e => setOvrNotes(e.target.value)}
+                style={{ width:'100%', boxSizing:'border-box', padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, marginBottom:8 }} />
+              <button onClick={handleManualOverride} disabled={ovrBusy}
+                style={{ width:'100%', padding:'8px 14px', borderRadius:6, border:`1px solid ${C.orange}`, background:ovrBusy ? C.surface : C.orangeFaint, color:C.orange, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:ovrBusy ? 'wait' : 'pointer' }}>
+                {ovrBusy ? '⏳ Submitting…' : '🛠 Apply Override'}
+              </button>
+              {ovrMsg && <div style={{ fontSize:11, marginTop:6, color:ovrMsg.startsWith('✓') ? C.green : C.red }}>{ovrMsg}</div>}
+              <div style={{ fontSize:10, color:C.textDim, lineHeight:1.5, marginTop:8 }}>
+                Writes the status directly via the same GitHub Action. A confident manual value won't be overwritten by an inconclusive automated scrape.
+              </div>
+            </div>
+            <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:14, marginTop:14 }}>
+              <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
+                <span style={{ color:C.blue }}>🐞 Debug / Maintenance</span> <span style={{ color:C.textDim, fontSize:10 }}>— for retuning the scraper if the portal changes</span>
               </div>
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                <input type="password" placeholder="sk-ant-…" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleUpdateApiKey()}
-                  style={{ flex:1, minWidth:160, padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }} />
-                <button onClick={handleUpdateApiKey} style={{ padding:'7px 14px', borderRadius:6, border:`1px solid ${C.gold}`, background:C.goldFaint, color:C.gold, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
-                  ↗ Manage Key
+                <button onClick={handleScrapeDebug} disabled={dbgBusy}
+                  style={{ flex:1, minWidth:140, padding:'8px 12px', borderRadius:6, border:`1px solid ${C.blue}`, background:dbgBusy ? C.surface : C.blueFaint, color:C.blue, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:dbgBusy ? 'wait' : 'pointer' }}>
+                  🐞 Scrape + Debug
+                </button>
+                <button onClick={handleClearDebug} disabled={dbgBusy}
+                  style={{ flex:1, minWidth:140, padding:'8px 12px', borderRadius:6, border:`1px solid ${C.red}`, background:dbgBusy ? C.surface : C.redFaint, color:C.red, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:dbgBusy ? 'wait' : 'pointer' }}>
+                  🧹 Clear Debug
                 </button>
               </div>
-              {apiKeyMsg && <div style={{ fontSize:11, marginTop:6, color:apiKeyMsg.startsWith('✓') ? C.green : C.red }}>{apiKeyMsg}</div>}
+              {dbgMsg && <div style={{ fontSize:11, marginTop:6, color:dbgMsg.startsWith('✓') ? C.green : C.red }}>{dbgMsg}</div>}
+              <div style={{ fontSize:10, color:C.textDim, lineHeight:1.5, marginTop:8 }}>
+                <span style={{ color:C.blue }}>Scrape + Debug</span> runs a lookup and commits <code>debug/</code> (rendered page text + screenshot) so the result can be reviewed. <span style={{ color:C.red }}>Clear Debug</span> removes that folder once you're done. Normal runs never commit debug output.
+              </div>
             </div>
           </div>
         )}
@@ -514,6 +599,11 @@ function CaseDashboard() {
               {triggerStatus==='loading' ? '⏳ Triggering…' : triggerStatus==='ok' ? '✓ Triggered!' : '⚡ Run Status Check'}
             </button>
             )}
+            {ownerMode && (
+            <button onClick={()=>setConfigOpen(o=>!o)} style={{ padding:'10px 16px', borderRadius:8, border:`1px solid ${C.border}`, background:C.surface, color:C.textSub, fontFamily:C.mono, fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+              ⚙ {configOpen ? 'Close' : 'Setup'}
+            </button>
+            )}
           </div>
 
           {triggerMsg && <div style={{ padding:'9px 14px', borderRadius:7, marginBottom:14, fontSize:12, background:triggerStatus==='ok'?C.greenFaint:C.redFaint, border:`1px solid ${triggerStatus==='ok'?C.green:C.red}44`, color:triggerStatus==='ok'?C.green:C.red }}>{triggerMsg}</div>}
@@ -526,11 +616,18 @@ function CaseDashboard() {
             }
           </div>
 
-          {lastChecked && (
-            <div style={{ fontFamily:C.mono, fontSize:10, color:C.textDim, marginBottom:14, display:'inline-block', padding:'4px 10px', background:C.surface, borderRadius:5 }}>
-              Last workflow run: {fmtTS(lastChecked)} {docStatus?.checkedBy ? `· ${docStatus.checkedBy}` : ''}
-            </div>
-          )}
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:14 }}>
+            {lastFetched && (
+              <div style={{ fontFamily:C.mono, fontSize:10, color:C.textSub, padding:'4px 10px', background:C.surface, borderRadius:5 }}>
+                Last refreshed: {fmtTS(lastFetched)}
+              </div>
+            )}
+            {ownerMode && lastChecked && (
+              <div style={{ fontFamily:C.mono, fontSize:10, color:C.textDim, padding:'4px 10px', background:C.surface, borderRadius:5 }}>
+                Last status check: {fmtTS(lastChecked)}{docStatus?.checkedBy ? ` · ${docStatus.checkedBy}` : ''}
+              </div>
+            )}
+          </div>
 
           {docStatus ? (
             <div>
@@ -542,24 +639,28 @@ function CaseDashboard() {
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(185px,1fr))', gap:10, marginBottom:14 }}>
                 {[['Current Location',docStatus.currentLocation],['Permanent Location',docStatus.permanentLocation],['Inmate #',docStatus.inmateNumber],['Parole #',docStatus.paroleNumber],['Age on Record',docStatus.age],['Last DOC Update',docStatus.lastDOCUpdate]].filter(([,v])=>v).map(([k,v])=>(
-                  <div key={k} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px' }}>
-                    <div style={{ fontSize:10, color:C.textSub, letterSpacing:1, fontFamily:C.mono, marginBottom:3 }}>{k.toUpperCase()}</div>
-                    <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{v}</div>
+                  <div key={k} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:10 }}>
+                    <div style={{ fontSize:10, color:C.textSub, letterSpacing:1, fontFamily:C.mono }}>{k.toUpperCase()}</div>
+                    <div style={{ fontSize:13, fontWeight:600, color:C.text, textAlign:'right' }}>{v}</div>
                   </div>
                 ))}
               </div>
               {docStatus.notes && (
-              <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'12px', fontSize:12, color:C.textSub, lineHeight:1.7, marginBottom:10 }}>
+              <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'12px', fontSize:12, color:C.textSub, lineHeight:1.7, marginBottom:10, maxHeight:ownerMode?180:140, overflowY:'auto' }}>
                 {ownerMode
                   ? docStatus.notes
                   : (docStatus.status === 'Unknown'
-                    ? 'No status check has run yet. Check back later.'
+                    ? 'The automated lookup could not confirm a current custody status. Use the official sources below to verify directly.'
                     : docStatus.notes
                   )
                 }
               </div>
             )}
-              {docStatus.sourcesChecked?.length > 0 && <div style={{ fontFamily:C.mono, fontSize:10, color:C.textDim }}>Sources: {docStatus.sourcesChecked.join(' · ')}</div>}
+              {ownerMode && docStatus.sourcesChecked?.length > 0 && (
+                <div style={{ fontFamily:C.mono, fontSize:10, color:C.textDim, maxHeight:90, overflowY:'auto', background:C.surface, border:`1px solid ${C.border}`, borderRadius:6, padding:'8px 10px' }}>
+                  Sources: {docStatus.sourcesChecked.join(' · ')}
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ textAlign:'center', padding:'24px 20px', color:C.textDim }}>
@@ -572,11 +673,11 @@ function CaseDashboard() {
               </div>
             </div>
           )}
+          <div style={{ marginTop:10, fontSize:11, color:C.textSub, lineHeight:1.7 }}>
+            Official: <a href="https://inmatelocator.cor.pa.gov/" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>DOC Locator (PE1239)</a> · <a href="https://vinelink.dhs.gov/" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>VINELink</a> · <a href="https://vinelink.vineapps.com/state/PA" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>PA VINE</a>
+          </div>
         </div>
         )}
-        <div style={{ marginTop:10, fontSize:11, color:C.textSub, lineHeight:1.7 }}>
-          Official: <a href="https://inmatelocator.cor.pa.gov/" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>DOC Locator (PE1239)</a> · <a href="https://vinelink.dhs.gov/" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>VINELink</a> · <a href="https://vinelink.vineapps.com/state/PA" target="_blank" rel="noopener noreferrer" style={{ color:C.blue }}>PA VINE</a>
-        </div>
       </div>
     );
   };
@@ -686,9 +787,9 @@ function CaseDashboard() {
     { age: 29, year: '2021', label: 'Offense/Arrest',  note: 'Assault+Burglary', color: C.red },
     { age: 30, year: '2021', label: 'Sentenced',       note: '5–12 yrs State', color: C.red },
     { age: 35, year: '2026', label: '★ Min. Reached',  note: 'Parole-eligible', color: C.green, current: true },
-    { age: 36, year: '2027', label: 'Optimistic',      note: '~20–35%', color: C.textDim, future: true },
-    { age: 37, year: '2028', label: 'Likely',          note: '~50–65%', color: C.textDim, future: true },
-    { age: 40, year: '2031', label: 'Pessimistic',     note: '~85%', color: C.textDim, future: true },
+    { age: 36, year: '2027', label: 'Optimistic Release',      note: '~20–35%', color: C.textDim, future: true },
+    { age: 37, year: '2028', label: 'Likely Release',          note: '~50–65%', color: C.textDim, future: true },
+    { age: 40, year: '2031', label: 'Pessimistic Release',     note: '~85%', color: C.textDim, future: true },
     { age: 42, year: '2033', label: 'Max Release',     note: 'Mandatory', color: C.textDim, future: true },
   ];
 
@@ -861,6 +962,12 @@ function CaseDashboard() {
 
       <div style={{ padding: '24px 24px 0' }}>
 
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+          <span style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, letterSpacing: 1 }}>CASE DOCUMENTS · CP-54-CR-0000435-2021</span>
+          <button onClick={() => openPdf('CP-54-CR-0000435-2021','docket')} style={{ fontFamily: C.mono, fontSize: 11, color: C.blue, background: C.blueFaint, border: `1px solid ${C.blue}44`, borderRadius: 5, padding: '4px 10px', cursor: 'pointer' }}>📄 Docket Sheet</button>
+          <button onClick={() => openPdf('CP-54-CR-0000435-2021','summary')} style={{ fontFamily: C.mono, fontSize: 11, color: C.blue, background: C.blueFaint, border: `1px solid ${C.blue}44`, borderRadius: 5, padding: '4px 10px', cursor: 'pointer' }}>🏛 Court Summary</button>
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 10 }}>
           <button onClick={expandAll} style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>⊞ Expand All</button>
           <button onClick={collapseAll} style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>⊟ Collapse All</button>
@@ -885,7 +992,7 @@ function CaseDashboard() {
                           <InfoRow label="Inmate Number"      value="PE1239"                      mono color={C.gold}   C={C} />
                           <InfoRow label="Parole Number"      value="345JW"                       mono color={C.purple} C={C} />
                           <InfoRow label="Commit Name"        value="Jacqueline Elizabeth Chattin"                      C={C} />
-                          <InfoRow label="AKAs"               value="Jacqueline Chattin · Jacqueline E. Chattin"       C={C} />
+                          <InfoRow label="AKAs"               value="Jacqueline Chattin · Jacqueline Elizabeth Chattin"       C={C} />
                           <InfoRow label="Date of Birth"      value="02/21/1991"                  mono                  C={C} />
                           <InfoRow label="Age"                value="35"                          mono color={C.purple} C={C} />
                           <InfoRow label="Height"             value={`5' 7"`}                      mono                  C={C} />
@@ -1072,7 +1179,7 @@ function CaseDashboard() {
                 <div style={{ fontFamily: C.mono, fontSize: 13, color: ch.role !== 'CONCURRENT' ? C.gold : C.textSub, fontWeight: ch.role !== 'CONCURRENT' ? 700 : 400 }}>{ch.maxMo} months</div>
               </div>
             ))}
-            <div style={{ background: C.goldFaint, borderTop: `1px solid ${C.gold}44`, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ background: C.goldFaint, borderTop: `1px solid ${C.gold}44`, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, minWidth: 560 }}>
               <div style={{ fontFamily: C.mono, fontSize: 11, color: C.gold, fontWeight: 700 }}>EFFECTIVE TOTAL (Seq 3 anchor + Seq 4 consecutive)</div>
               <div style={{ display: 'flex', gap: 24 }}>
                 {[['60 mo','MIN · 5 yrs · age 30→35'],['144 mo','MAX · 12 yrs · age 30→42']].map(([v,s]) => (
@@ -1091,14 +1198,14 @@ function CaseDashboard() {
         {/* ══ CASE BACKGROUND ════════════════════════════════════════════════ */}
         <Section title="Case Background" sectionKey="background" defaultOpen={false} icon="📖" C={C}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '18px 20px', lineHeight: 1.7, fontSize: 13, color: C.textSub, boxShadow: C.shadow }}>
-            <p style={{ marginTop: 0 }}>Chattin — who was under the influence of methamphetamine — broke into her grandmother's home in Pottsville and assaulted the victim with a deadly weapon, then stole her purse and cell phone, subsequently using the stolen access devices fraudulently. She also broke into a second residence and squatted there with an associate until located and arrested by Pottsville PD Officer Hamilton on January 18, 2021.</p>
+            <p style={{ marginTop: 0 }}>Chattin — who was allegedly under the influence of methamphetamine — broke into her grandmother's home in Pottsville and assaulted the victim with a deadly weapon, then stole her purse and cell phone, subsequently using the stolen access devices fraudulently. She also broke into a second residence and squatted there with an associate until located and arrested by Pottsville PD Officer Hamilton on January 18, 2021.</p>
             <p>The assault triggered a significant deterioration of the victim's cognitive health. The victim's dementia worsened in the aftermath and she subsequently required placement in assisted living — a direct consequence of Jackie's actions.</p>
             <p style={{ marginBottom: 0 }}>Court-ordered restitution of <strong style={{ color: C.gold }}>$1,100.00</strong> was assessed for stolen property. The crime was driven by meth addiction — her prior record includes multiple drug possession cases stretching back to 2009.</p>
           </div>
         </Section>
 
 {/* ══ PA SAVIN ══════════════════════════════════════════════════════ */}
-        <Section title="PA SAVIN — Automatic Custody Notifications" sectionKey="savin" defaultOpen={false} icon="🔔" accent={C.green} C={C}>
+        <Section title="Automatic Custody Notifications" sectionKey="savin" defaultOpen={false} icon="🔔" accent={C.green} C={C}>
           <div style={{ background: C.greenFaint, border: `2px solid ${C.green}55`, borderRadius: 10, padding: '18px 20px', marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: C.green, marginBottom: 8 }}>⭐ Most Important Action — Register for Automatic Alerts</div>
             <div style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7, marginBottom: 14 }}>
@@ -1106,14 +1213,17 @@ function CaseDashboard() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10, marginBottom: 14 }}>
               {[
-                { label: 'VINE Toll-Free',  value: '1-866-972-7284', icon: '📞' },
+                { label: 'VINE Toll-Free',  value: '1-866-972-7284', icon: '📞', tel: '18669727284' },
                 { label: 'Inmate # to use', value: 'PE1239',          icon: '🔢' },
                 { label: 'PIN needed',      value: '4-digit (you choose)', icon: '🔑' },
                 { label: 'Cost',            value: 'FREE',            icon: '✅' },
               ].map(item => (
-                <div key={item.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px' }}>
-                  <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{item.icon} {item.label}</div>
-                  <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.green }}>{item.value}</div>
+                <div key={item.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 11, color: C.textSub }}>{item.icon} {item.label}</div>
+                  {item.tel
+                    ? <a href={`tel:${item.tel}`} style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.green, textDecoration: 'none', textAlign: 'right' }}>{item.value}</a>
+                    : <div style={{ fontFamily: C.mono, fontSize: 14, fontWeight: 700, color: C.green, textAlign: 'right' }}>{item.value}</div>
+                  }
                 </div>
               ))}
             </div>
@@ -1174,7 +1284,7 @@ function CaseDashboard() {
           </div>
           <Expand label="ACT 84 Payment History (DOC inmate wage deductions confirming incarceration)" icon="🏛️" C={C}>
             <div style={{ maxHeight: 200, overflowY: 'auto', fontFamily: C.mono, fontSize: 11 }}>
-              {[['Aug 2021','$145.00'],['Sep 2021','$75.00'],['Oct 2021','$47.15'],['Nov 2021','$40.21'],['Dec 2021','$79.49'],['Jan 2022','$53.49'],['Feb 2022','$50.31'],['Mar 2022','$23.75'],['Apr 2022','$38.98'],['Jun 2022','$102.38'],['Aug 2022','$75.97'],['Sep 2022','$43.77'],['Oct 2022','$41.27'],['Nov 2022','$52.52'],['Dec 2022','$26.30'],['Jan 2023','$27.85'],['Feb 2023','$25.78'],['Mar 2023','$23.57'],['Apr 2023','$28.70'],['May 2023','$37.51'],['Jun 2023','$16.95'],['Jul 2023','$17.40'],['Aug 2023','$25.24'],['Sep 2023','$15.08'],['Oct 2023','$17.87'],['Nov 2023','$53.06'],['Dec 2023','$14.86'],['Feb 2024','$25.70'],['Mar 2024','$19.45'],['Apr 2024','$29.47'],['May 2024','$20.11'],['Jun 2024','$5.67'],['Jul 2024','$11.97'],['Aug 2024','$25.05'],['Sep 2024','$8.71'],['Oct 2024','$6.90'],['Nov 2024','$10.45'],['Feb 2025','$12.25'],['Mar 2025','$12.95'],['Apr 2025','$17.08'],['May 2025','$21.48'],['Jun 2025','$14.49'],['Jul 2025','$14.22'],['Aug 2025','$15.47'],['Sep 2025','$21.60'],['Oct 2025','$9.63'],['Nov 2025','$14.70'],['Dec 2025','$18.18'],['Jan 2026','$21.50'],['Feb 2026','$7.80'],['Mar 2026','$18.35'],['Apr 2026','$30.47'],['May 2026','$16.80 ← MOST RECENT']].map(([mo,amt]) => (
+              {[['Aug 2021','$145.00'],['Sep 2021','$75.00'],['Oct 2021','$47.15'],['Nov 2021','$40.21'],['Dec 2021','$79.49'],['Jan 2022','$53.49'],['Feb 2022','$50.31'],['Mar 2022','$23.75'],['Apr 2022','$38.98'],['Jun 2022','$102.38'],['Aug 2022','$75.97'],['Sep 2022','$43.77'],['Oct 2022','$41.27'],['Nov 2022','$52.52'],['Dec 2022','$26.30'],['Jan 2023','$27.85'],['Feb 2023','$25.78'],['Mar 2023','$23.57'],['Apr 2023','$28.70'],['May 2023','$37.51'],['Jun 2023','$16.95'],['Jul 2023','$17.40'],['Aug 2023','$25.24'],['Sep 2023','$15.08'],['Oct 2023','$17.87'],['Nov 2023','$53.06'],['Dec 2023','$14.86'],['Feb 2024','$25.70'],['Mar 2024','$19.45'],['Apr 2024','$29.47'],['May 2024','$20.11'],['Jun 2024','$5.67'],['Jul 2024','$11.97'],['Aug 2024','$25.05'],['Sep 2024','$8.71'],['Oct 2024','$6.90'],['Nov 2024','$10.45'],['Feb 2025','$12.25'],['Mar 2025','$12.95'],['Apr 2025','$17.08'],['May 2025','$21.48'],['Jun 2025','$14.49'],['Jul 2025','$14.22'],['Aug 2025','$15.47'],['Sep 2025','$21.60'],['Oct 2025','$9.63'],['Nov 2025','$14.70'],['Dec 2025','$18.18'],['Jan 2026','$21.50'],['Feb 2026','$7.80'],['Mar 2026','$18.35'],['Apr 2026','$30.47'],['May 2026','$16.80']].map(([mo,amt]) => (
                 <div key={mo} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: `1px solid ${C.border}`, color: amt.includes('←') ? C.green : C.textSub }}>
                   <span>{mo}</span><span>{amt}</span>
                 </div>
@@ -1240,7 +1350,7 @@ function CaseDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: 14 }}>
             <div style={{ background: C.card, border: `2px solid ${C.purple}44`, borderRadius: 10, padding: '18px', borderTop: `3px solid ${C.purple}`, boxShadow: C.shadow }}>
               <div style={{ fontFamily: C.mono, fontSize: 10, color: C.purple, letterSpacing: 2, marginBottom: 10 }}>SUBJECT</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>Jacqueline E. Chattin</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>Jacqueline Elizabeth Chattin</div>
               <div style={{ fontFamily: C.mono, fontSize: 11, color: C.textSub, marginTop: 4 }}>DOB: February 21, 1991</div>
               <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {[['Current Age', `${currentAge} years old`],['Height',`5' 7"`],['Next Birthday',`Feb 21, 2027 (${daysToNextBD}d)`],['Age at Offense','29 years old'],['Age at Sentencing','30 years old'],['Age at Min. Date','35 years old']].map(([k,v]) => (
@@ -1300,7 +1410,7 @@ function CaseDashboard() {
             <StatCard label="First Arrest"    value="Age 18" sub="Corruption of Minors, 2009"    accent={C.orange} C={C} />
             <StatCard label="Bail Set"        value="$50,000" sub="Monetary · Jan 18, 2021"      accent={C.red}    C={C} />
             <StatCard label="Mugshot Gap"     value="7 days" sub="Before min. date (parole signal)" accent={C.purple} C={C} />
-            <StatCard label="Age at Max"      value="42"     sub="If serves full 12 yrs"         accent={C.blue}   C={C} />
+            <StatCard label="Age at Max Release" value="42"  sub="If serves full 12 yrs"         accent={C.blue}   C={C} />
             <StatCard label="Unique Judges"   value="4"      sub="Baldwin, Dolbin, Domalakes, Hale" accent={C.blue} C={C} />
           </div>
         </Section>
@@ -1316,6 +1426,9 @@ function CaseDashboard() {
                 <DocketLink docket="CP-54-CR-0000435-2021" label="Docket Sheet — Main Case" C={C} />
                 <DocketLink docket="CP-54-CR-0000435-2021" label="Court Summary" C={C} />
                 <DocketLink docket="CP-54-CR-0000437-2021" label="Concurrent Case (2nd property)" C={C} />
+                <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0 2px', paddingTop: 8, fontFamily: C.mono, fontSize: 9, color: C.textDim, letterSpacing: 1 }}>PDF DOCUMENTS</div>
+                <button onClick={() => openPdf('CP-54-CR-0000435-2021','docket')} style={{ textAlign: 'left', fontFamily: C.mono, fontSize: 11, color: C.blue, background: C.blueFaint, border: `1px solid ${C.blue}44`, borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>📄 Docket Sheet (PDF)</button>
+                <button onClick={() => openPdf('CP-54-CR-0000435-2021','summary')} style={{ textAlign: 'left', fontFamily: C.mono, fontSize: 11, color: C.blue, background: C.blueFaint, border: `1px solid ${C.blue}44`, borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>🏛 Court Summary (PDF)</button>
               </div>
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px', boxShadow: C.shadow }}>

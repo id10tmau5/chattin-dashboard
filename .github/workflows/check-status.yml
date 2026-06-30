@@ -1,11 +1,32 @@
 name: Check DOC Status
 
 on:
-  # Manual trigger (Run Status Check button / Actions tab)
+  # Manual trigger. mode selects the behavior:
+  #   scrape       → headless portal lookup, commit status.json only (clean)
+  #   scrape-debug → same, but also commit debug/ (page text + screenshot) for review
+  #   manual       → owner-supplied status written straight to status.json
+  #   clear-debug  → remove the debug/ folder from the repo
   workflow_dispatch:
-  # Daily auto-refresh at 07:00 UTC year-round.
-  # That's 3:00 AM EDT (summer) / 2:00 AM EST (winter) — middle of the
-  # night either way, so the DST hour-drift doesn't matter.
+    inputs:
+      mode:
+        description: 'scrape · scrape-debug · manual · clear-debug'
+        type: choice
+        options: [scrape, scrape-debug, manual, clear-debug]
+        default: scrape
+      manual_status:
+        description: 'manual only: Inmate / Parolee / Discharged / Unknown'
+        type: string
+        default: ''
+      manual_location:
+        description: 'manual only: facility or district (optional)'
+        type: string
+        default: ''
+      manual_notes:
+        description: 'manual only: short note (optional)'
+        type: string
+        default: ''
+  # Daily auto-refresh at 07:00 UTC year-round (≈3 AM ET — DST drift is harmless).
+  # Scheduled runs are always plain 'scrape' (no debug commit).
   schedule:
     - cron: '0 7 * * *'
 
@@ -18,76 +39,93 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Query Anthropic API for current DOC status
+      # ── CLEAR DEBUG ─────────────────────────────────────────────────────────
+      # Remove any committed debug/ folder from the repo and stop.
+      - name: Clear debug folder
+        if: ${{ inputs.mode == 'clear-debug' }}
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git rm -r --ignore-unmatch debug/ >/dev/null 2>&1 || true
+          git diff --staged --quiet && echo "Nothing to clear" || \
+            git commit -m "chore: clear debug folder $(date -u '+%Y-%m-%d %H:%M UTC')" && git push
+
+      # ── MANUAL OVERRIDE ─────────────────────────────────────────────────────
+      # Owner-supplied status. Inputs are passed via env (not interpolated into
+      # the script body) to avoid quote breakage / injection.
+      - name: Manual override
+        if: ${{ inputs.mode == 'manual' && inputs.manual_status != '' }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          M_STATUS:   ${{ inputs.manual_status }}
+          M_LOCATION: ${{ inputs.manual_location }}
+          M_NOTES:    ${{ inputs.manual_notes }}
         run: |
           python3 << 'EOF'
-          import json, os, re, datetime, urllib.request, urllib.error
-
-          api_key = os.environ['ANTHROPIC_API_KEY']
-          payload = {
-            "model": "claude-sonnet-4-6",
-            "max_tokens": 1000,
-            "tools": [{"type": "web_search_20250305", "name": "web_search"}],
-            "system": (
-              "You are a PA DOC custody status checker. Look up the CURRENT status of "
-              "PA DOC inmate Jacqueline Elizabeth Chattin, inmate number PE1239, "
-              "parole number 345JW. Search inmatelocator.cor.pa.gov, VINELink "
-              "(vinelink.vineapps.com), and any other publicly available sources. "
-              "Return ONLY a valid JSON object with no markdown, no backticks: "
-              "{\"status\":\"Inmate or Parolee or Discharged or Unknown\","
-              "\"currentLocation\":\"facility or district or null\","
-              "\"permanentLocation\":\"value or null\","
-              "\"paroleNumber\":\"345JW or updated or null\","
-              "\"inmateNumber\":\"PE1239\","
-              "\"lastDOCUpdate\":\"date string or null\","
-              "\"age\":\"current age or null\","
-              "\"notes\":\"any changes, decisions, transfers, or release info\","
-              "\"sourcesChecked\":[\"sources\"],"
-              "\"confidence\":\"High or Medium or Low\"}"
-            ),
-            "messages": [{"role": "user", "content": (
-              "Check current PA DOC custody status for Jacqueline Elizabeth Chattin, "
-              "inmate PE1239, parole 345JW. Still at SCI Cambridge Springs? "
-              "Transferred, paroled, or released? Return only JSON."
-            )}]
+          import json, os, datetime
+          now = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+          loc = os.environ.get('M_LOCATION','').strip() or None
+          status = {
+            "status":            os.environ['M_STATUS'].strip(),
+            "currentLocation":   loc,
+            "permanentLocation": None,
+            "inmateNumber":      "PE1239",
+            "paroleNumber":      "345JW",
+            "lastDOCUpdate":     None,
+            "age":               None,
+            "notes":             (os.environ.get('M_NOTES','').strip()
+                                  or "Status set manually by owner."),
+            "sourcesChecked":    ["Manual owner override"],
+            "confidence":        "High",
+            "lastChecked":       now,
+            "checkedBy":         "Manual override (owner)",
           }
-          req = urllib.request.Request(
-            'https://api.anthropic.com/v1/messages',
-            data=json.dumps(payload).encode('utf-8'),
-            headers={'Content-Type': 'application/json',
-                     'x-api-key': api_key,
-                     'anthropic-version': '2023-06-01'},
-            method='POST'
-          )
-          try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-              data = json.loads(resp.read().decode('utf-8'))
-          except urllib.error.HTTPError as e:
-            raise RuntimeError(f"API error {e.code}: {e.read().decode()[:200]}")
-
-          raw = '\n'.join(c['text'] for c in data.get('content',[]) if c.get('type')=='text').strip()
-          print(f"Response:\n{raw}\n")
-          try:
-            clean = re.sub(r'```json\n?|```\n?','',raw).strip()
-            m = re.search(r'\{[\s\S]*\}', clean)
-            status = json.loads(m.group(0) if m else clean)
-          except Exception as e:
-            status = {"status":"Unknown","notes":raw[:500],"confidence":"Low",
-                      "sourcesChecked":[],"inmateNumber":"PE1239","paroleNumber":"345JW"}
-
-          status['lastChecked'] = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-          status['checkedBy']   = 'GitHub Actions (manual trigger)'
-          with open('status.json','w') as f:
-            json.dump(status, f, indent=2)
-          print(f"Status: {status.get('status')} | Location: {status.get('currentLocation')}")
+          json.dump(status, open('status.json','w'), indent=2)
+          print(f"Manual override → {status['status']} ({loc or 'no location'})")
           EOF
 
-      - name: Commit status.json
+      # ── AUTOMATED SCRAPE ────────────────────────────────────────────────────
+      # Runs for daily cron and for scrape / scrape-debug dispatches.
+      - name: Set up Python
+        if: ${{ inputs.mode != 'manual' && inputs.mode != 'clear-debug' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright + Chromium
+        if: ${{ inputs.mode != 'manual' && inputs.mode != 'clear-debug' }}
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Scrape PA DOC Inmate Locator
+        if: ${{ inputs.mode != 'manual' && inputs.mode != 'clear-debug' }}
+        env:
+          CHECKED_BY: >-
+            ${{ github.event_name == 'schedule'
+                && 'GitHub Actions (automatic daily scrape)'
+                || 'GitHub Actions (manual scrape)' }}
+        run: python3 scripts/scrape_status.py
+
+      - name: Upload scrape debug artifacts
+        if: ${{ always() && inputs.mode != 'manual' && inputs.mode != 'clear-debug' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-debug
+          path: debug/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # ── COMMIT ──────────────────────────────────────────────────────────────
+      # Always commit status.json (scrape + manual). Only commit debug/ when the
+      # owner explicitly chose scrape-debug, so normal/daily runs stay clean.
+      - name: Commit results
+        if: ${{ always() && inputs.mode != 'clear-debug' }}
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
           git add status.json
+          if [ "${{ inputs.mode }}" = "scrape-debug" ]; then
+            git add -f debug/ 2>/dev/null || true
+          fi
           git diff --staged --quiet && echo "No changes" || \
             git commit -m "chore: status check $(date -u '+%Y-%m-%d %H:%M UTC')" && git push
