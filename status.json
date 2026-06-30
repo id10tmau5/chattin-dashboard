@@ -1,20 +1,16 @@
 {
-  "status": "Unknown",
+  "status": "Parolee",
   "currentLocation": null,
   "permanentLocation": null,
-  "paroleNumber": "345JW",
   "inmateNumber": "PE1239",
+  "paroleNumber": "345JW",
   "lastDOCUpdate": null,
   "age": null,
-  "notes": "No live record data could be retrieved for Jacqueline Elizabeth Chattin (PE1239 / 345JW) via web search. The PA DOC Inmate Locator (inmatelocator.cor.pa.gov), VINELink (vinelink.com), and PA SAVIN all require direct browser-based JavaScript interaction with authenticated or interactive lookups \u2014 they do not expose individual inmate records in publicly crawlable search results. No third-party indexed record for this individual was found. To get a confirmed current status, query inmatelocator.cor.pa.gov directly by inmate number PE1239, search VINELink at vinelink.com for Pennsylvania by name or offender ID, or call PA SAVIN at 1-866-972-7284.",
+  "notes": "Locator indicates parole / community supervision.",
   "sourcesChecked": [
-    "inmatelocator.cor.pa.gov (not crawlable \u2014 JS-required portal)",
-    "vinelink.com / PA VINELink (not crawlable \u2014 JS-required portal)",
-    "pa.gov/services/cor/locate-an-inmate-or-parolee",
-    "pa.gov/services/cor/custody-status-updates",
-    "General web search (no indexed record found for PE1239 or Jacqueline Chattin)"
+    "inmatelocator.cor.pa.gov (Playwright headless scrape)"
   ],
-  "confidence": "Low",
-  "lastChecked": "2026-06-30T10:27:05Z",
-  "checkedBy": "GitHub Actions (manual trigger)"
+  "confidence": "Medium",
+  "lastChecked": "2026-06-30T17:00:30Z",
+  "checkedBy": "GitHub Actions (manual scrape)"
 }
