@@ -8,7 +8,7 @@
 #                session-based portal that plain HTTP / web-search cannot read, so
 #                this drives a real Chromium instance via Playwright, searches by
 #                inmate number, captures the rendered result, and writes status.json.
-#                Saves debug_page.txt + debug_screenshot.png as CI artifacts so the
+#                Saves debug/page.txt + debug/screenshot.png as CI artifacts so the
 #                selectors/heuristics can be tuned against what the portal actually
 #                returns. Never silently clobbers a manual owner override with a
 #                low-confidence "Unknown".
@@ -16,7 +16,7 @@
 #  Associated files:
 #                - .github/workflows/check-status.yml  (invokes this script)
 #                - status.json                         (output, committed by CI)
-#                - debug_page.txt / debug_screenshot.png (CI artifacts)
+#                - debug/page.txt / debug/screenshot.png (CI artifacts, gitignored)
 # ─────────────────────────────────────────────────────────────────────────────
 import json
 import os
@@ -29,6 +29,7 @@ INMATE_NUMBER = "PE1239"
 LAST_NAME     = "Chattin"
 PORTAL_URL    = "https://inmatelocator.cor.pa.gov/"
 STATUS_FILE   = "status.json"
+DEBUG_DIR     = "debug"        # CI-artifact scratch dir (never committed)
 
 
 def utc_now():
@@ -134,7 +135,8 @@ def scrape():
             print(f"Scrape error: {e}", file=sys.stderr)
         finally:
             try:
-                page.screenshot(path="debug_screenshot.png", full_page=True)
+                os.makedirs(DEBUG_DIR, exist_ok=True)
+                page.screenshot(path=f"{DEBUG_DIR}/screenshot.png", full_page=True)
             except Exception:
                 pass
             browser.close()
@@ -142,12 +144,13 @@ def scrape():
 
 
 def main():
+    os.makedirs(DEBUG_DIR, exist_ok=True)
     checked_by = os.environ.get("CHECKED_BY", "GitHub Actions (automated portal scrape)")
     page_text  = scrape()
 
     # Always drop a debug copy of what the portal rendered.
     try:
-        with open("debug_page.txt", "w") as f:
+        with open(f"{DEBUG_DIR}/page.txt", "w") as f:
             f.write(page_text or "(empty — scrape returned no text)")
     except Exception:
         pass
