@@ -48,6 +48,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Status-check scrape debug artifacts (CI-only; uploaded as workflow artifacts, never committed)
+/debug/
+
 # Vercel
 .vercel
 
