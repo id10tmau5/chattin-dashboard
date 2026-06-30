@@ -1,16 +1,16 @@
 {
-  "status": "Parolee",
-  "currentLocation": null,
+  "status": "Inmate",
+  "currentLocation": "SCI Cambridge Springs",
   "permanentLocation": null,
   "inmateNumber": "PE1239",
   "paroleNumber": "345JW",
   "lastDOCUpdate": null,
   "age": null,
-  "notes": "Locator indicates parole / community supervision.",
+  "notes": "Inmate locator lists active incarceration at SCI Cambridge Springs.",
   "sourcesChecked": [
     "inmatelocator.cor.pa.gov (Playwright headless scrape)"
   ],
-  "confidence": "Medium",
-  "lastChecked": "2026-06-30T17:05:09Z",
+  "confidence": "High",
+  "lastChecked": "2026-06-30T19:49:49Z",
   "checkedBy": "GitHub Actions (manual scrape)"
 }
