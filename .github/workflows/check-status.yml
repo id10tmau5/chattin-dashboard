@@ -25,6 +25,10 @@ on:
         description: 'manual only: short note (optional)'
         type: string
         default: ''
+      manual_lock:
+        description: 'manual only: lock this value so daily scrapes won''t change it'
+        type: string
+        default: 'true'
   # Daily auto-refresh at 07:00 UTC year-round (≈3 AM ET — DST drift is harmless).
   # Scheduled runs are always plain 'scrape' (no debug commit).
   schedule:
@@ -59,6 +63,7 @@ jobs:
           M_STATUS:   ${{ inputs.manual_status }}
           M_LOCATION: ${{ inputs.manual_location }}
           M_NOTES:    ${{ inputs.manual_notes }}
+          M_LOCK:     ${{ inputs.manual_lock }}
         run: |
           python3 << 'EOF'
           import json, os, datetime
@@ -78,6 +83,7 @@ jobs:
             "confidence":        "High",
             "lastChecked":       now,
             "checkedBy":         "Manual override (owner)",
+            "locked":            os.environ.get('M_LOCK','').strip().lower() == 'true',
           }
           json.dump(status, open('status.json','w'), indent=2)
           print(f"Manual override → {status['status']} ({loc or 'no location'})")

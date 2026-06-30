@@ -517,6 +517,7 @@ function CaseDashboard() {
   const [ovrStatus, setOvrStatus] = useState('Inmate');
   const [ovrLocation, setOvrLocation] = useState('');
   const [ovrNotes, setOvrNotes] = useState('');
+  const [ovrLock, setOvrLock] = useState(true);
   const [ovrBusy, setOvrBusy] = useState(false);
   const [ovrMsg, setOvrMsg] = useState(null);
   const [dbgBusy, setDbgBusy] = useState(false);
@@ -782,7 +783,8 @@ function CaseDashboard() {
     mode: 'manual',
     manual_status: ovrStatus,
     manual_location: ovrLocation,
-    manual_notes: ovrNotes
+    manual_notes: ovrNotes,
+    manual_lock: ovrLock ? 'true' : 'false'
   }, {
     okMsg: '✓ Override submitted — tap Check for Updates in ~30 seconds.',
     cooldown: 30,
@@ -1132,7 +1134,24 @@ function CaseDashboard() {
         fontSize: 11,
         marginBottom: 8
       }
-    }), /*#__PURE__*/React.createElement("button", {
+    }), /*#__PURE__*/React.createElement("label", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 11,
+        color: C.textSub,
+        marginBottom: 8,
+        cursor: 'pointer'
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: ovrLock,
+      onChange: e => setOvrLock(e.target.checked),
+      style: {
+        cursor: 'pointer'
+      }
+    }), "🔒 Lock — keep this value until I change it (daily scrapes won't override it)"), /*#__PURE__*/React.createElement("button", {
       onClick: handleManualOverride,
       disabled: ovrBusy,
       style: {
@@ -1868,7 +1887,7 @@ function CaseDashboard() {
   }, {
     age: 40,
     year: '2031',
-    label: 'Pessimistic Release',
+    label: 'Pessimistic Release (est.)',
     note: '~85%',
     color: C.textDim,
     future: true
@@ -2515,7 +2534,7 @@ function CaseDashboard() {
     C: C
   }), /*#__PURE__*/React.createElement(InfoRow, {
     label: "AKAs",
-    value: "Jacqueline Chattin · Jacqueline Elizabeth Chattin",
+    value: "Jacqueline Chattin · Jacqueline E. Chattin",
     C: C
   }), /*#__PURE__*/React.createElement(InfoRow, {
     label: "Date of Birth",
@@ -4231,33 +4250,82 @@ function CaseDashboard() {
       color: C.textDim,
       letterSpacing: 1
     }
-  }, "PDF DOCUMENTS"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => openPdf('CP-54-CR-0000435-2021', 'docket'),
+  }, "SOURCE PDFs — ALL CASES"), [{
+    docket: 'CP-54-CR-0000435-2021',
+    label: 'Main Case — Burglary/Theft (2021)'
+  }, {
+    docket: 'CP-54-CR-0000437-2021',
+    label: 'Concurrent — 2nd property (2021)'
+  }, {
+    docket: 'CP-54-CR-0001924-2019',
+    label: 'Drug Possession ×2 — revocation (2019)'
+  }, {
+    docket: 'CP-54-CR-0000143-2020',
+    label: 'Drug Charges ×5 + Open Lewdness (2020)'
+  }, {
+    docket: 'CP-54-CR-0000540-2019',
+    label: 'Crim. Trespass F3 + Drug Poss. (2019)'
+  }, {
+    docket: 'CP-54-CR-0000461-2019',
+    label: 'Drug Paraphernalia (2019)'
+  }, {
+    docket: 'CP-54-CR-0001864-2016',
+    label: 'Retail Theft (2016)'
+  }, {
+    docket: 'CP-54-CR-0000327-2010',
+    label: 'Corruption of Minors (2010)'
+  }].map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.docket,
     style: {
-      textAlign: 'left',
+      borderTop: `1px solid ${C.border}`,
+      paddingTop: 8,
+      marginTop: 2
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: C.mono,
+      fontSize: 11,
+      color: C.textSub,
+      marginBottom: 5
+    }
+  }, c.label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: C.mono,
+      fontSize: 9,
+      color: C.textDim,
+      marginBottom: 6
+    }
+  }, c.docket), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf(c.docket, 'docket'),
+    style: {
       fontFamily: C.mono,
       fontSize: 11,
       color: C.blue,
       background: C.blueFaint,
       border: `1px solid ${C.blue}44`,
       borderRadius: 6,
-      padding: '7px 10px',
+      padding: '6px 12px',
       cursor: 'pointer'
     }
-  }, "📄 Docket Sheet (PDF)"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => openPdf('CP-54-CR-0000435-2021', 'summary'),
+  }, "📄 Docket"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => openPdf(c.docket, 'summary'),
     style: {
-      textAlign: 'left',
       fontFamily: C.mono,
       fontSize: 11,
       color: C.blue,
       background: C.blueFaint,
       border: `1px solid ${C.blue}44`,
       borderRadius: 6,
-      padding: '7px 10px',
+      padding: '6px 12px',
       cursor: 'pointer'
     }
-  }, "🏛 Court Summary (PDF)"))), /*#__PURE__*/React.createElement("div", {
+  }, "🏛 Summary")))))), /*#__PURE__*/React.createElement("div", {
     style: {
       background: C.card,
       border: `1px solid ${C.border}`,

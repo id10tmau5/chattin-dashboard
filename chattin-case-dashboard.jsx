@@ -237,6 +237,7 @@ function CaseDashboard() {
   const [ovrStatus,     setOvrStatus]     = useState('Inmate');
   const [ovrLocation,   setOvrLocation]   = useState('');
   const [ovrNotes,      setOvrNotes]      = useState('');
+  const [ovrLock,       setOvrLock]       = useState(true);
   const [ovrBusy,       setOvrBusy]       = useState(false);
   const [ovrMsg,        setOvrMsg]        = useState(null);
   const [dbgBusy,       setDbgBusy]       = useState(false);
@@ -402,7 +403,7 @@ function CaseDashboard() {
 
   // Owner manual override → writes the chosen status straight to status.json.
   const handleManualOverride = () => dispatchStatusWorkflow(
-    { mode: 'manual', manual_status: ovrStatus, manual_location: ovrLocation, manual_notes: ovrNotes },
+    { mode: 'manual', manual_status: ovrStatus, manual_location: ovrLocation, manual_notes: ovrNotes, manual_lock: ovrLock ? 'true' : 'false' },
     { okMsg: '✓ Override submitted — tap Check for Updates in ~30 seconds.', cooldown: 30, setMsg: setOvrMsg, setBusy: setOvrBusy }
   );
 
@@ -538,6 +539,10 @@ function CaseDashboard() {
               </div>
               <input type="text" placeholder="Note (optional)" value={ovrNotes} onChange={e => setOvrNotes(e.target.value)}
                 style={{ width:'100%', boxSizing:'border-box', padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, marginBottom:8 }} />
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:C.textSub, marginBottom:8, cursor:'pointer' }}>
+                <input type="checkbox" checked={ovrLock} onChange={e => setOvrLock(e.target.checked)} style={{ cursor:'pointer' }} />
+                🔒 Lock — keep this value until I change it (daily scrapes won't override it)
+              </label>
               <button onClick={handleManualOverride} disabled={ovrBusy}
                 style={{ width:'100%', padding:'8px 14px', borderRadius:6, border:`1px solid ${C.orange}`, background:ovrBusy ? C.surface : C.orangeFaint, color:C.orange, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:ovrBusy ? 'wait' : 'pointer' }}>
                 {ovrBusy ? '⏳ Submitting…' : '🛠 Apply Override'}
@@ -789,7 +794,7 @@ function CaseDashboard() {
     { age: 35, year: '2026', label: '★ Min. Reached',  note: 'Parole-eligible', color: C.green, current: true },
     { age: 36, year: '2027', label: 'Optimistic Release',      note: '~20–35%', color: C.textDim, future: true },
     { age: 37, year: '2028', label: 'Likely Release',          note: '~50–65%', color: C.textDim, future: true },
-    { age: 40, year: '2031', label: 'Pessimistic Release',     note: '~85%', color: C.textDim, future: true },
+    { age: 40, year: '2031', label: 'Pessimistic Release (est.)',     note: '~85%', color: C.textDim, future: true },
     { age: 42, year: '2033', label: 'Max Release',     note: 'Mandatory', color: C.textDim, future: true },
   ];
 
@@ -992,7 +997,7 @@ function CaseDashboard() {
                           <InfoRow label="Inmate Number"      value="PE1239"                      mono color={C.gold}   C={C} />
                           <InfoRow label="Parole Number"      value="345JW"                       mono color={C.purple} C={C} />
                           <InfoRow label="Commit Name"        value="Jacqueline Elizabeth Chattin"                      C={C} />
-                          <InfoRow label="AKAs"               value="Jacqueline Chattin · Jacqueline Elizabeth Chattin"       C={C} />
+                          <InfoRow label="AKAs"               value="Jacqueline Chattin · Jacqueline E. Chattin"       C={C} />
                           <InfoRow label="Date of Birth"      value="02/21/1991"                  mono                  C={C} />
                           <InfoRow label="Age"                value="35"                          mono color={C.purple} C={C} />
                           <InfoRow label="Height"             value={`5' 7"`}                      mono                  C={C} />
@@ -1426,9 +1431,26 @@ function CaseDashboard() {
                 <DocketLink docket="CP-54-CR-0000435-2021" label="Docket Sheet — Main Case" C={C} />
                 <DocketLink docket="CP-54-CR-0000435-2021" label="Court Summary" C={C} />
                 <DocketLink docket="CP-54-CR-0000437-2021" label="Concurrent Case (2nd property)" C={C} />
-                <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0 2px', paddingTop: 8, fontFamily: C.mono, fontSize: 9, color: C.textDim, letterSpacing: 1 }}>PDF DOCUMENTS</div>
-                <button onClick={() => openPdf('CP-54-CR-0000435-2021','docket')} style={{ textAlign: 'left', fontFamily: C.mono, fontSize: 11, color: C.blue, background: C.blueFaint, border: `1px solid ${C.blue}44`, borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>📄 Docket Sheet (PDF)</button>
-                <button onClick={() => openPdf('CP-54-CR-0000435-2021','summary')} style={{ textAlign: 'left', fontFamily: C.mono, fontSize: 11, color: C.blue, background: C.blueFaint, border: `1px solid ${C.blue}44`, borderRadius: 6, padding: '7px 10px', cursor: 'pointer' }}>🏛 Court Summary (PDF)</button>
+                <div style={{ borderTop: `1px solid ${C.border}`, margin: '4px 0 2px', paddingTop: 8, fontFamily: C.mono, fontSize: 9, color: C.textDim, letterSpacing: 1 }}>SOURCE PDFs — ALL CASES</div>
+                {[
+                  { docket: 'CP-54-CR-0000435-2021', label: 'Main Case — Burglary/Theft (2021)' },
+                  { docket: 'CP-54-CR-0000437-2021', label: 'Concurrent — 2nd property (2021)' },
+                  { docket: 'CP-54-CR-0001924-2019', label: 'Drug Possession ×2 — revocation (2019)' },
+                  { docket: 'CP-54-CR-0000143-2020', label: 'Drug Charges ×5 + Open Lewdness (2020)' },
+                  { docket: 'CP-54-CR-0000540-2019', label: 'Crim. Trespass F3 + Drug Poss. (2019)' },
+                  { docket: 'CP-54-CR-0000461-2019', label: 'Drug Paraphernalia (2019)' },
+                  { docket: 'CP-54-CR-0001864-2016', label: 'Retail Theft (2016)' },
+                  { docket: 'CP-54-CR-0000327-2010', label: 'Corruption of Minors (2010)' },
+                ].map(c => (
+                  <div key={c.docket} style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, marginTop: 2 }}>
+                    <div style={{ fontFamily: C.mono, fontSize: 11, color: C.textSub, marginBottom: 5 }}>{c.label}</div>
+                    <div style={{ fontFamily: C.mono, fontSize: 9, color: C.textDim, marginBottom: 6 }}>{c.docket}</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <button onClick={() => openPdf(c.docket,'docket')} style={{ fontFamily: C.mono, fontSize: 11, color: C.blue, background: C.blueFaint, border: `1px solid ${C.blue}44`, borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>📄 Docket</button>
+                      <button onClick={() => openPdf(c.docket,'summary')} style={{ fontFamily: C.mono, fontSize: 11, color: C.blue, background: C.blueFaint, border: `1px solid ${C.blue}44`, borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>🏛 Summary</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '16px', boxShadow: C.shadow }}>
