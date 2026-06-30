@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  scrape_status.py
 #  Author:       Rocky Cooper
-#  Version:      1.0.0
+#  Version:      1.1.0
 #  Description:  Headless-browser scraper for the PA DOC Inmate/Parolee Locator
 #                (inmatelocator.cor.pa.gov). The locator is a JavaScript-rendered,
 #                session-based portal that plain HTTP / web-search cannot read, so
@@ -10,8 +10,8 @@
 #                inmate number, captures the rendered result, and writes status.json.
 #                Saves debug/page.txt + debug/screenshot.png as CI artifacts so the
 #                selectors/heuristics can be tuned against what the portal actually
-#                returns. Never silently clobbers a manual owner override with a
-#                low-confidence "Unknown".
+#                returns. Respects an owner lock and never silently clobbers a
+#                manual owner override with a low-confidence "Unknown".
 #  Requirements: Python 3.10+, playwright (chromium) — installed in the workflow.
 #  Associated files:
 #                - .github/workflows/check-status.yml  (invokes this script)
@@ -37,45 +37,52 @@ def utc_now():
     return datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def extract_facility(text):
-    """Pull an 'SCI <Name>' facility string out of the rendered page text, if present."""
-    m = re.search(r"SCI[\s\-]+[A-Z][A-Za-z.\-]+(?:\s+[A-Z][A-Za-z.\-]+)?", text)
-    return m.group(0).strip() if m else None
-
-
 def classify(text):
     """
-    Heuristically map the locator's rendered text to a custody status.
+    Map the locator's rendered result table to a custody status.
+    The PA inmate locator returns a row: INMATE#  NAME  DOB  LOCATION  COUNTY
+    (e.g. "PE1239  JACQUELINE ELIZABETH CHATTIN  02/21/1991  CAMBRIDGE SPRINGS  SCHUYLKILL").
     Returns (status, location, notes, confidence).
-    Absence of a record is treated as Unknown/Low — it is NOT proof of discharge.
+    Absence of a record is Unknown/Low — NOT proof of discharge (a parolee instead
+    appears in the separate Department Supervised Individual locator).
     """
-    t   = text.lower()
-    loc = extract_facility(text)
-
+    t = text.lower()
     no_hit = any(p in t for p in (
-        "no records", "no results", "no matching", "not found",
-        "0 records", "no inmate", "did not match",
+        "no records", "no results", "no matching record",
+        "0 records", "did not match", "no inmate found",
     ))
+
+    # Parse the result row anchored on the inmate number.
+    row = re.search(
+        re.escape(INMATE_NUMBER) + r"\s+([A-Za-z .'-]+?)\s+(\d{2}/\d{2}/\d{4})\s+(.+)",
+        text,
+    )
+    location = None
+    if row:
+        rest = row.group(3).splitlines()[0].strip()
+        toks = [x for x in rest.split() if x]
+        if len(toks) >= 2:        # drop the trailing committing-county token
+            location = " ".join(toks[:-1]).title()
+        elif toks:
+            location = toks[0].title()
+
+    if row and location:
+        # A district/parole office in the location field means supervision, not custody.
+        if any(k in location.lower() for k in ("district", "office", "parole", "supervis")):
+            return ("Parolee", location,
+                    f"Locator lists supervision at {location}.", "Medium")
+        loc_label = location if location.lower().startswith("sci") else f"SCI {location}"
+        return ("Inmate", loc_label,
+                f"Inmate locator lists active incarceration at {loc_label}.", "High")
+
     if no_hit:
         return ("Unknown", None,
-                "Locator returned no matching record. This is not confirmation of "
-                "discharge — it can also mean a portal hiccup or a changed record.",
-                "Low")
-
-    matched = (INMATE_NUMBER.lower() in t) or (LAST_NAME.lower() in t)
-    if matched:
-        if any(p in t for p in ("parole", "community corrections", "board of probation", "ccc", "supervised")):
-            return ("Parolee", loc,
-                    "Locator indicates parole / community supervision.", "Medium")
-        if loc or " sci " in f" {t} ":
-            return ("Inmate", loc,
-                    f"Locator shows active incarceration{' at ' + loc if loc else ''}.", "High")
-        return ("Unknown", loc,
-                "Record matched but the status text could not be parsed — see debug artifact.",
+                "Inmate locator returned no matching record. Not confirmation of discharge — "
+                "a paroled individual may instead appear in the Department Supervised Individual locator.",
                 "Low")
 
     return ("Unknown", None,
-            "No matching record found in the rendered page — see debug artifact.", "Low")
+            "Record not parsed from the rendered page — see debug artifact.", "Low")
 
 
 def load_existing():
@@ -145,6 +152,14 @@ def scrape():
 
 def main():
     os.makedirs(DEBUG_DIR, exist_ok=True)
+
+    # Owner lock: if a manual override set locked=true, the automated scrape leaves
+    # status.json untouched until the owner clears/replaces it.
+    existing = load_existing()
+    if existing and existing.get("locked"):
+        print("Owner lock active — scrape skipped; status.json unchanged.")
+        return
+
     checked_by = os.environ.get("CHECKED_BY", "GitHub Actions (automated portal scrape)")
     page_text  = scrape()
 
