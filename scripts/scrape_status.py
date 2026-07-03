@@ -2,25 +2,28 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  scrape_status.py
 #  Author:       Rocky Cooper
-#  Version:      1.2.0
+#  Version:      1.3.0
 #  Description:  Headless-browser scraper for the PA DOC Inmate/Parolee Locator
 #                (inmatelocator.cor.pa.gov). The locator is a JavaScript-rendered,
 #                session-based portal that plain HTTP / web search cannot read, so
 #                this drives a real Chromium instance via Playwright.
 #                Multi-pass logic:
 #                  Pass 1 (inmate #) → active incarceration (Inmate).
-#                  Pass 2 (last name) → community supervision (Parolee)  [Phase 2].
-#                  Neither + max date passed → Discharged                [Phase 3].
+#                  Pass 2 (parole #, Supervised locator) → Parolee     [Phase 2].
+#                  Neither + max date passed → Discharged               [Phase 3].
 #                  Neither + before max date → Unknown (never asserts discharge
 #                  without evidence).
 #                Respects an owner lock (locked=true) and preserves a confident
 #                manual override rather than clobbering it with a flaky Unknown.
-#                Writes per-pass debug (debug/page_<tag>.txt + screenshot_<tag>.png).
+#                In scrape-debug mode (SCRAPE_DEBUG=true) it also captures a
+#                landing-page control inventory (debug/form_recon_*.txt) and runs
+#                the supervised pass for tuning, without changing the status result.
 #  Requirements: Python 3.10+, playwright (chromium) — installed by the workflow.
 #  Associated files:
 #                - .github/workflows/check-status.yml   (invokes this script)
 #                - status.json                          (output, committed by CI)
-#                - debug/page_*.txt / debug/screenshot_*.png (CI artifacts, gitignored)
+#                - debug/page_*.txt / debug/screenshot_*.png / debug/form_recon_*.txt
+#                  (CI artifacts, gitignored; committed only in scrape-debug mode)
 # ─────────────────────────────────────────────────────────────────────────────
 import json
 import os
@@ -31,6 +34,7 @@ from playwright.sync_api import sync_playwright
 
 # ── Subject / portal constants ───────────────────────────────────────────────
 INMATE_NUMBER = "PE1239"
+PAROLE_NUMBER = "345JW"
 LAST_NAME     = "Chattin"
 FIRST_NAME    = "Jacqueline"
 PORTAL_URL    = "https://inmatelocator.cor.pa.gov/"
@@ -141,16 +145,80 @@ def write_status(status, location, notes, confidence, checked_by):
 
 
 # ── Scraping ─────────────────────────────────────────────────────────────────
+
+def capture_controls(page):
+    """
+    Return a text inventory of every interactive control on the current page
+    (inputs, selects, buttons, radios, tabs, links). Used to tune selectors against
+    the portal's real DOM — dumped to debug/ and only committed in scrape-debug mode.
+    """
+    js = """() => {
+      const out = [];
+      const els = document.querySelectorAll('input, select, button, a, label, [role=tab], [role=radio], [role=button]');
+      els.forEach(e => {
+        const opts = e.tagName === 'SELECT'
+          ? Array.from(e.options).map(o => o.text).join(' | ') : '';
+        out.push([
+          e.tagName,
+          'name=' + (e.name || ''),
+          'id=' + (e.id || ''),
+          'type=' + (e.type || ''),
+          'placeholder=' + (e.placeholder || ''),
+          'text=' + ((e.innerText || e.value || '').trim().slice(0, 50)),
+          opts ? 'options=[' + opts + ']' : ''
+        ].filter(Boolean).join('  '));
+      });
+      return out.join('\\n');
+    }"""
+    try:
+        return page.evaluate(js)
+    except Exception as e:
+        return f"(recon failed: {e})"
+
+
+def switch_to_supervised(page):
+    """
+    Best-effort: switch the portal to the Department Supervised Individual Locator.
+    Tries radios/tabs/links/selects whose label mentions supervision. Returns True
+    if something plausible was clicked. Non-fatal if it can't find the control.
+    """
+    candidates = [
+        'text=Department Supervised Individual',
+        'text=Supervised Individual',
+        'text=Parolee',
+        'label:has-text("Supervised")',
+        '[value*="supervis" i]',
+        '[id*="supervis" i]',
+        '[name*="supervis" i]',
+    ]
+    for sel in candidates:
+        try:
+            el = page.query_selector(sel)
+            if el:
+                el.click()
+                page.wait_for_timeout(1500)
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def scrape_search(query, mode, tag):
     """
     Drive Chromium against the locator and return the rendered body text.
-    mode='number' fills the inmate-number field; mode='name' fills the last-name
-    field (Phase 2). Saves per-pass debug text + screenshot under debug/.
+    mode='number' fills the inmate-number field; mode='supervised' switches to the
+    Department Supervised Individual Locator then fills the parole-number field;
+    mode='name' fills the last-name field. Saves per-pass debug (text, screenshot,
+    and a landing-page control inventory) under debug/.
     """
     if mode == "number":
         selectors = ('input[name*="number" i]', 'input[id*="number" i]',
                      'input[placeholder*="number" i]', 'input[name*="inmate" i]',
                      'input[type="text"]')
+    elif mode == "supervised":
+        selectors = ('input[name*="parole" i]', 'input[id*="parole" i]',
+                     'input[placeholder*="parole" i]', 'input[name*="number" i]',
+                     'input[name*="last" i]', 'input[type="text"]')
     else:  # name
         selectors = ('input[name*="last" i]', 'input[id*="last" i]',
                      'input[placeholder*="last" i]', 'input[name*="lname" i]',
@@ -163,6 +231,17 @@ def scrape_search(query, mode, tag):
         try:
             page.goto(PORTAL_URL, timeout=45000, wait_until="domcontentloaded")
             page.wait_for_timeout(3500)  # let the JS app boot
+
+            # Recon: dump the landing-page control inventory for selector tuning.
+            try:
+                with open(f"{DEBUG_DIR}/form_recon_{tag}.txt", "w") as f:
+                    f.write(capture_controls(page))
+            except Exception:
+                pass
+
+            # Supervised pass must switch locators before searching.
+            if mode == "supervised":
+                switch_to_supervised(page)
 
             filled = False
             for sel in selectors:
@@ -220,15 +299,21 @@ def main():
         return
 
     checked_by = os.environ.get("CHECKED_BY", "GitHub Actions (automated portal scrape)")
+    debug_mode = os.environ.get("SCRAPE_DEBUG", "").lower() == "true"
 
     # ── Pass 1 — inmate-number search (active incarceration) ─────────────────
     s1 = classify(scrape_search(INMATE_NUMBER, "number", "number"))
     if s1[0] in ("Inmate", "Parolee"):
+        # In debug mode, still run the supervised pass purely to capture recon /
+        # results for tuning — but keep Pass 1's authoritative status.
+        if debug_mode:
+            scrape_search(PAROLE_NUMBER, "supervised", "supervised")
         write_status(*s1, checked_by)
         return
 
-    # ── Pass 2 (Phase 2) — last-name search (catches supervised/parole) ──────
-    s2 = classify(scrape_search(LAST_NAME, "name", "name"))
+    # ── Pass 2 (Phase 2) — Department Supervised Individual Locator ───────────
+    # Switches to the supervised locator and searches by parole number.
+    s2 = classify(scrape_search(PAROLE_NUMBER, "supervised", "supervised"))
     if s2[0] in ("Inmate", "Parolee"):
         write_status(*s2, checked_by)
         return
