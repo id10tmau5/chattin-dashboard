@@ -4,6 +4,33 @@ All notable changes to this project are documented here.
 
 ---
 
+## [1.3.0] — 2026-07-03
+
+### Added
+- **Playwright headless scraper (`scripts/scrape_status.py`)** — The PA DOC Inmate Locator is a JavaScript-rendered, session-based portal that plain HTTP / web search cannot read. The status check now drives a real headless Chromium instance in the workflow, searches by inmate number, parses the rendered result row (`INMATE#  NAME  DOB  LOCATION  COUNTY`), and writes `status.json`. Validated end-to-end against the live portal (returns `Inmate · SCI Cambridge Springs · High`).
+- **Manual status override + lock** — Owner-only form in the ⚙ Setup panel to set status / location / note directly. A **🔒 Lock** option writes `locked: true`, and the automated scrape then leaves `status.json` untouched until the owner clears or replaces it — so a value can be pinned (e.g. for a first reveal) regardless of what the daily cron finds.
+- **Debug / maintenance tooling** — Two owner-only buttons: **🐞 Scrape + Debug** runs a scrape and commits `debug/` (rendered page text + full-page screenshot) so the result can be reviewed directly in the repo, and **🧹 Clear Debug** removes that folder. Normal and scheduled runs never commit debug output.
+- **Status-reactive banners (dynamic status — phase 1)** — The Sentence Status section now shows a **RELEASED ON PAROLE** or **SENTENCE COMPLETE — DISCHARGED** banner (with location and confirmation date) driven by the live `status.json`, in addition to the existing minimum-date-reached notice.
+
+### Changed
+- **Status checks are now zero-cost** — Replacing the Anthropic API call with headless scraping means the daily and manual checks make **no API calls at all**. The `ANTHROPIC_API_KEY` secret is no longer used by the status check. The Setup panel's Anthropic-key field was removed and replaced with the manual override.
+- **Four-mode workflow** — `check-status.yml` `workflow_dispatch` now takes a `mode`: `scrape` (normal, commits `status.json` only), `scrape-debug` (also commits `debug/`), `manual` (owner override, honors `manual_lock`), and `clear-debug` (removes `debug/`). Scheduled cron runs are always plain `scrape`.
+- **Live values throughout the dashboard** — A single frozen "today" constant was making every derived figure stale. `TODAY` is now the real current date, so *Days in Custody*, *Days Past Minimum*, *Days to Max*, *Max % Served*, *Est. Cost*, *current age*, *Years in System*, and *Next Birthday* all compute live. Remaining hardcoded values that would drift (the Age row, Years-in-System, the Next-Birthday year, and the status badge / permanent-location dates) now derive from the current date or the last-confirmed check.
+- **Run Status Check cooldown** raised to 90s to accommodate the headless-browser install time; the manual-override path stays fast (30s) since it skips Playwright.
+- **AKAs** now read "Jacqueline Chattin · Jacqueline E. Chattin" (the commit/legal name still shows the full middle name).
+- **Case Timeline** parole projection now reads "Pessimistic Release (est.)".
+- **Official Resources & Source Documents** — Every case (all 8) now lists its Docket and Court Summary PDFs, matching the Prior Criminal Record layout.
+
+### Fixed
+- **Scraper classifier** — The initial parser keyed on the string "SCI", which the locator does not print (it lists the facility as e.g. `CAMBRIDGE SPRINGS`). It now parses the actual result row and correctly returns `Inmate · SCI Cambridge Springs · High` instead of `Unknown`.
+- **Stale status date** — The custody badge and permanent-location line no longer show a hardcoded `6/16/2026`; they show the real last-confirmed date from `status.json`.
+
+### Infrastructure
+- `.gitignore` now lists `/debug/` (CI scratch output, force-committed only in `scrape-debug` mode during tuning).
+- Scrape debug files are organized under `debug/` (`page.txt`, `screenshot.png`) and also uploaded as a 7-day workflow artifact.
+
+---
+
 ## [1.2.0] — 2026-06-29
 
 ### Changed
