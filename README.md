@@ -2,7 +2,7 @@
 
 **Live:** https://id10tmau5.github.io/chattin-dashboard/
 
-A React-based inmate status dashboard hosted on GitHub Pages. Displays public court record and PA DOC data, with an on-demand and scheduled AI-powered status check workflow.
+A React-based inmate status dashboard hosted on GitHub Pages. Displays public court record and PA DOC data, with on-demand and scheduled status checks driven by a **headless-browser scrape** of the PA DOC Inmate Locator — **no API, no per-check cost**.
 
 ---
 
@@ -14,9 +14,33 @@ Edit .jsx source → push to GitHub → build.yml compiles → site updates (~2 
 
 The dashboard pre-compiles JSX to plain JavaScript via GitHub Actions so the browser does zero transformation at load time — page renders in 1–2 seconds on mobile.
 
-Status data is refreshed in two ways:
-- **Automatically** — `check-status.yml` runs daily at 07:00 UTC via cron, writes `status.json`, and GitHub Pages serves the updated file
-- **Manually** — the owner can trigger a fresh check on demand from the dashboard (owner mode required)
+Status data is refreshed in three ways:
+- **Automatically** — `check-status.yml` runs daily at 07:00 UTC via cron, scrapes the locator, writes `status.json`, and GitHub Pages serves the updated file.
+- **On demand** — the owner triggers a fresh scrape from the dashboard (owner mode).
+- **Manual override** — the owner sets the status directly (with an optional lock) when automation can’t confirm it or when the displayed value needs to be pinned.
+
+All displayed figures (days in custody, days past minimum, % served, current age, etc.) compute live from the current date.
+
+---
+
+## Status Checks & Manual Override
+
+The PA DOC Inmate Locator is a JavaScript-rendered, session-based portal that plain HTTP / web search cannot read. `scripts/scrape_status.py` drives a real headless Chromium instance (Playwright), searches by inmate number, parses the result row, and writes `status.json`.
+
+`check-status.yml` runs in one of four **modes** (chosen by the `workflow_dispatch` `mode` input; the daily cron always uses plain `scrape`):
+
+| Mode | What it does |
+|------|--------------|
+| `scrape` | Headless portal lookup; commits `status.json` only. **Default + daily cron.** |
+| `scrape-debug` | Same lookup, but also commits `debug/` (rendered page text + screenshot) for review. |
+| `manual` | Writes an owner-supplied status straight to `status.json`. Honors the lock flag. |
+| `clear-debug` | Removes the `debug/` folder from the repo. |
+
+**Manual override + lock** (⚙ Setup → *Manual Status Override*): choose a status (Inmate / Parolee / Discharged / Unknown), optional location and note. With **🔒 Lock** checked, `status.json` gets `locked: true` and the automated scrape leaves it untouched until the owner clears or replaces it — useful for pinning a value. Uncheck Lock to hand control back to the daily scrape.
+
+**Debug tooling** (⚙ Setup → *Debug / Maintenance*): **🐞 Scrape + Debug** runs a scrape and commits `debug/page.txt` + `debug/screenshot.png` so the raw portal result can be reviewed; **🧹 Clear Debug** removes them. Normal and scheduled runs never commit debug output.
+
+> The status check makes **no Anthropic API calls** — the `ANTHROPIC_API_KEY` secret is no longer used.
 
 ---
 
@@ -39,16 +63,18 @@ Status data is refreshed in two ways:
 | `mugshot-data.js` | Sets `window.CHATTIN_MUGSHOT` to the official PA DOC photo as a base64 data URL. |
 | `assets/pdfs/` | 16 PDF files (docket sheet + court summary × 8 cases). Referenced by the in-dashboard PDF lightbox. |
 
-### Data
+### Status check
 | File | Description |
 |------|-------------|
-| `status.json` | Latest DOC custody status. Written by `check-status.yml` after each check. Read by the “Check for Updates” button. |
+| `scripts/scrape_status.py` | Playwright headless scraper. Searches the locator by inmate number, parses the result, writes `status.json`. Respects the owner lock. |
+| `status.json` | Latest DOC custody status. Written by `check-status.yml`. Read by the “Check for Updates” button. |
+| `debug/` | Scrape debug output (`page.txt`, `screenshot.png`). Git-ignored; committed only in `scrape-debug` mode, and also uploaded as a 7-day workflow artifact. |
 
 ### Workflows
 | File | Trigger | Description |
 |------|---------|-------------|
 | `.github/workflows/build.yml` | Push to `.jsx` or manual | Installs Babel via `npm ci`, compiles JSX → JS, commits result with `[skip ci]`. |
-| `.github/workflows/check-status.yml` | Daily 07:00 UTC + manual | Calls Anthropic API with web search to look up current PA DOC custody status. Writes `status.json`. |
+| `.github/workflows/check-status.yml` | Daily 07:00 UTC + manual | Headless Chromium (Playwright) scrape of the PA DOC locator, or a manual override. Four modes (see above). Writes `status.json`. |
 
 ### Config
 | File | Description |
@@ -60,17 +86,15 @@ Status data is refreshed in two ways:
 
 ## One-Time Setup
 
-### 1 — Anthropic API key (GitHub Secret)
-- Repo → **Settings → Secrets and variables → Actions → New repository secret**
-- Name: `ANTHROPIC_API_KEY` · Value: your `sk-ant-…` key from [console.anthropic.com](https://console.anthropic.com)
+### 1 — Access token (browser-side)
+- Required to trigger on-demand checks, manual overrides, and debug actions from the dashboard.
+- Access via owner mode (see below) → enter token → **Save** — stored in `localStorage` only, never transmitted except to `api.github.com`.
+- Token needs `repo` scope (classic PAT) or `Actions: Write` (fine-grained PAT).
 
-### 2 — Access token (browser-side)
-- Required to trigger on-demand status checks from the dashboard
-- Access via owner mode (see below) → enter token → **Save** — stored in `localStorage` only, never transmitted except to `api.github.com`
-- Token needs `repo` scope (classic PAT) or `Actions: Write` (fine-grained PAT)
+### 2 — GitHub Pages
+- Repo → **Settings → Pages** → Source: **Deploy from branch** → `main` / `/ (root)` → Save.
 
-### 3 — GitHub Pages
-- Repo → **Settings → Pages** → Source: **Deploy from branch** → `main` / `/ (root)` → Save
+> No Anthropic API key is required anymore — the status check scrapes the portal directly. Any existing `ANTHROPIC_API_KEY` secret can be left in place or removed; it is unused.
 
 ---
 
@@ -84,24 +108,26 @@ By default the dashboard shows only the status display and a single button. Deve
 | Toggle on mobile | 5 rapid taps on the footer’s “SOURCE:” line |
 | State persists | Stored in `localStorage` — stays unlocked across visits on that browser |
 
-Owner mode reveals: **Run Status Check** button, **↻ compile** button, and **⚙ setup** config panel.
+Owner mode reveals: **Run Status Check** button, **↻ compile** button, and the **⚙ Setup** panel (access token, manual override + lock, and debug / maintenance tools).
 
 ---
 
 ## Editing the Dashboard
 
-1. Edit `chattin-case-dashboard.jsx` (locally or via Claude)
-2. Push the updated `.jsx` to `main`
-3. `build.yml` compiles it and commits the new `.js` automatically
-4. GitHub Pages redeploys — live within ~2 minutes
+1. Edit `chattin-case-dashboard.jsx` (locally or via Claude).
+2. Push the updated `.jsx` to `main`.
+3. `build.yml` compiles it and commits the new `.js` automatically.
+4. GitHub Pages redeploys — live within ~2 minutes.
 
 Alternately, edit the `.jsx` directly in GitHub’s web editor, then use the **↻ compile** button (owner mode) to trigger a manual recompile.
+
+> **Note:** the `.jsx` / `.js` exceed the size the GitHub API push path allows, so they are pushed via desktop git. `index.html`’s cache-bust (`?v=NNNNNN`) must be pushed in the **same commit** as a new `.js`.
 
 ---
 
 ## PDF Court Documents
 
-16 PDFs in `assets/pdfs/` (docket sheet + court summary for each of 8 cases). Accessible via clickable docket number links throughout the dashboard, which open an inline PDF lightbox on desktop or a new tab on mobile.
+16 PDFs in `assets/pdfs/` (docket sheet + court summary for each of 8 cases). Accessible via document buttons throughout the dashboard — at the top of the page, in the Charges section, and in Official Resources (all cases) — which open an inline PDF lightbox on desktop or Google Docs Viewer on mobile.
 
 File naming: `{DOCKET-NUMBER}-docket.pdf` and `{DOCKET-NUMBER}-summary.pdf`
 
