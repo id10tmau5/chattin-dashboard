@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  scrape_status.py
 #  Author:       Rocky Cooper
-#  Version:      1.3.1
+#  Version:      1.3.2
 #  Description:  Headless-browser scraper for the PA DOC Inmate/Parolee Locator
 #                (inmatelocator.cor.pa.gov). The locator is a JavaScript-rendered,
 #                session-based portal that plain HTTP / web search cannot read, so
@@ -179,28 +179,31 @@ def capture_controls(page):
 def switch_to_supervised(page):
     """
     Switch the portal to the Department Supervised Individual (parolee) locator.
-    The selector is a radio button: <input name="check" value="parolee">. Falls
-    back to a text/label click. Returns True if the switch was made.
+    The real radio (<input name="check" value="parolee">) is usually hidden behind
+    a styled label, so Playwright's .check() fails its actionability check. We click
+    it in-page via JavaScript, which fires the event the app listens for regardless
+    of visibility. Returns a short status string (also written to
+    debug/switch_result.txt) so the switch can be diagnosed from the debug artifacts.
     """
-    for sel in ('input[name="check"][value="parolee"]',
-                'input[name="check"][value*="parol" i]'):
-        try:
-            el = page.query_selector(sel)
-            if el:
-                el.check()
-                page.wait_for_timeout(1000)
-                return True
-        except Exception:
-            continue
     try:
-        el = page.query_selector('text=Department Supervised Individual')
-        if el:
-            el.click()
-            page.wait_for_timeout(1000)
-            return True
+        status = page.evaluate(r"""() => {
+          const radios = Array.from(document.querySelectorAll('input[name="check"]'));
+          if (!radios.length) return 'no-radios-found';
+          const inv = radios.map(r => `${r.value}:${r.checked}`).join(', ');
+          const p = radios.find(r => (r.value || '').toLowerCase().includes('parol'));
+          if (!p) return 'parolee-radio-not-found [' + inv + ']';
+          p.click();
+          return (p.checked ? 'switched-checked' : 'clicked-not-checked') + ' [' + inv + ' -> parolee:' + p.checked + ']';
+        }""")
+    except Exception as e:
+        status = f'error:{e}'
+    page.wait_for_timeout(1200)
+    try:
+        with open(f"{DEBUG_DIR}/switch_result.txt", "w") as f:
+            f.write(status + "\n")
     except Exception:
         pass
-    return False
+    return status
 
 
 def scrape_search(query, mode, tag):
