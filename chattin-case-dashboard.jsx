@@ -552,15 +552,15 @@ function CaseDashboard() {
                 <span style={{ color:C.orange }}>🛠 Manual Status Override</span> <span style={{ color:C.textDim, fontSize:10 }}>— fallback when the automated scrape can't read the portal</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
-                <select value={ovrStatus} onChange={e => setOvrStatus(e.target.value)}
-                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }}>
+                <select value={ovrStatus} onChange={e => setOvrStatus(e.target.value)} disabled={!debugEnabled}
+                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, opacity:debugEnabled ? 1 : 0.5, cursor:debugEnabled ? 'pointer' : 'not-allowed' }}>
                   {['Inmate','Parolee','Discharged','Unknown'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <input type="text" placeholder="Location (optional)" value={ovrLocation} onChange={e => setOvrLocation(e.target.value)}
-                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }} />
+                <input type="text" placeholder="Location (optional)" value={ovrLocation} onChange={e => setOvrLocation(e.target.value)} disabled={!debugEnabled}
+                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, opacity:debugEnabled ? 1 : 0.5 }} />
               </div>
-              <input type="text" placeholder="Note (optional)" value={ovrNotes} onChange={e => setOvrNotes(e.target.value)}
-                style={{ width:'100%', boxSizing:'border-box', padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, marginBottom:8 }} />
+              <input type="text" placeholder="Note (optional)" value={ovrNotes} onChange={e => setOvrNotes(e.target.value)} disabled={!debugEnabled}
+                style={{ opacity:debugEnabled ? 1 : 0.5, width:'100%', boxSizing:'border-box', padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, marginBottom:8 }} />
               <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:debugEnabled ? C.textSub : C.textDim, opacity:debugEnabled ? 1 : 0.5, marginBottom:8, cursor:debugEnabled ? 'pointer' : 'not-allowed' }}>
                 <input type="checkbox" checked={ovrLock} disabled={!debugEnabled} onChange={e => toggleOvrLock(e.target.checked)} style={{ cursor:debugEnabled ? 'pointer' : 'not-allowed' }} />
                 🔒 Lock — keep this value until I change it (daily scrapes won't override it){!debugEnabled && ' · enable debug tools to change'}

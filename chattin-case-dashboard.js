@@ -1135,6 +1135,7 @@ function CaseDashboard() {
     }, /*#__PURE__*/React.createElement("select", {
       value: ovrStatus,
       onChange: e => setOvrStatus(e.target.value),
+      disabled: !debugEnabled,
       style: {
         padding: '7px 10px',
         borderRadius: 6,
@@ -1142,7 +1143,9 @@ function CaseDashboard() {
         background: C.card,
         color: C.text,
         fontFamily: C.mono,
-        fontSize: 11
+        fontSize: 11,
+        opacity: debugEnabled ? 1 : 0.5,
+        cursor: debugEnabled ? 'pointer' : 'not-allowed'
       }
     }, ['Inmate', 'Parolee', 'Discharged', 'Unknown'].map(s => /*#__PURE__*/React.createElement("option", {
       key: s,
@@ -1152,6 +1155,7 @@ function CaseDashboard() {
       placeholder: "Location (optional)",
       value: ovrLocation,
       onChange: e => setOvrLocation(e.target.value),
+      disabled: !debugEnabled,
       style: {
         padding: '7px 10px',
         borderRadius: 6,
@@ -1159,14 +1163,17 @@ function CaseDashboard() {
         background: C.card,
         color: C.text,
         fontFamily: C.mono,
-        fontSize: 11
+        fontSize: 11,
+        opacity: debugEnabled ? 1 : 0.5
       }
     })), /*#__PURE__*/React.createElement("input", {
       type: "text",
       placeholder: "Note (optional)",
       value: ovrNotes,
       onChange: e => setOvrNotes(e.target.value),
+      disabled: !debugEnabled,
       style: {
+        opacity: debugEnabled ? 1 : 0.5,
         width: '100%',
         boxSizing: 'border-box',
         padding: '7px 10px',
