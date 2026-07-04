@@ -4,6 +4,32 @@ All notable changes to this project are documented here.
 
 ---
 
+## [1.4.0] — 2026-07-04
+
+### Added
+- **Automatic parole detection (Phase 2)** — The scraper now runs a second pass against the **Department Supervised Individual (parolee) locator**. It switches locators by clicking the real `parolee` radio in-page via JavaScript (the input is hidden behind a styled label, so Playwright's `.check()` couldn't act on it), searches by parole number, and detects the `"Department Supervised Individual Search Results"` view to classify a match as **Parolee** — regardless of the fact that this view exposes only a State column. Validated end-to-end against the live portal.
+- **Discharge handling (Phase 3)** — When neither locator returns a record and the maximum sentence date has passed, the status resolves to **Discharged**; otherwise it stays an honest **Unknown** (a previously-paroled record that vanishes is flagged for manual verification, never auto-asserted as discharged).
+- **Status-reactive banners (Phase 1)** — The Sentence Status section shows a **RELEASED ON PAROLE** or **SENTENCE COMPLETE — DISCHARGED** banner, driven by the live `status.json`.
+- **Debug tools master toggle** — A persisted **Enable debug tools** switch in the Setup panel. While off (the default), the entire owner-maintenance surface is disabled and greyed: **🐞 Scrape + Debug**, **🧹 Clear Debug**, the **Manual Status Override** fields (status / location / note), the **🔒 Lock** checkbox, and **🛠 Apply Override** — so none of them can fire by accident. All are guarded at both the UI and handler layers.
+- **Persistent override lock** — The **🔒 Lock** preference now persists across reloads (`localStorage`) and defaults **off**, so daily/manual scrapes reflect the real status unless a lock is deliberately set.
+- **`config.json` groundwork** — A repo-hosted section-layout schema (per-section order + user/owner visibility + `desktopColumns`) is now in place for the upcoming owner-editable layout system. Nothing consumes it yet.
+- **Subject Age Profile** — Added **Age at Parole** and **Age at Release** rows (placeholder `Pending` until those dates are known).
+- **Scrape diagnostics** — In `scrape-debug` mode the scraper captures a full landing-page control inventory (`debug/form_recon_*.txt`) and a locator-switch result (`debug/switch_result.txt`), gated by a new `SCRAPE_DEBUG` workflow flag, so selectors can be tuned against the portal's real DOM.
+
+### Fixed
+- **Dynamic dates regression (critical)** — A frozen `TODAY = new Date(2026, 5, 16)` had made every derived figure stale. Restored the live clock plus the `fmtMDY` / `lastConfirmed` / `nextBirthday` helpers, so these all compute in real time again: *Days Since Offense*, *Days in Custody*, *Days Past Minimum*, *Days to Max*, *Max % Served*, all four *Parole Projection* day-counts, *current age*, *Years in System* (with its "Age 18 → age N" sublabel), and *Next Birthday* (date + countdown). The custody badge date, the profile **Last Updated** row, the permanent-location line, and the footer **Rendered** date now all read the last-confirmed date instead of a hardcoded `6/16/2026`.
+- **Setup panel collapse** — The owner ⚙ Setup panel is now gated by `statusCheckerOpen`, so it collapses together with the DOC Status Checker section instead of staying visible.
+- **Inmate/parole field targeting** — The scraper targets the search fields by `id` (`#inmateNumber` / `#paroleNumber`) rather than by name, since the portal reuses `name="inmatenumber"` for both.
+
+### Changed
+- **Timeline label consistency** — The three parole projections now uniformly read *Optimistic Release (est.)*, *Likely Release (est.)*, and *Pessimistic Release (est.)* in both the Case Timeline and the Age-Across-Criminal-History timeline; the fixed *Max Release* keeps no `(est.)` since it is a mandatory date, not an estimate.
+- **Acronym expansion** — "IPP" in the Prior Criminal Record now reads "IPP (Intermediate Punishment Program)".
+
+### Notes
+- **Financial Obligations are not yet auto-updated.** Those figures are transcribed from the docket PDF; the status scraper only tracks custody. Live financial refresh would require a separate UJS-portal scrape and is a candidate for a future enhancement.
+
+---
+
 ## [1.3.0] — 2026-07-03
 
 ### Added
