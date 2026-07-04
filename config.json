@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-03T21:30:00Z",
+  "layout": {
+    "desktopColumns": 2
+  },
+  "sections": {
+    "profile":     { "order": 1,  "user": true, "owner": true },
+    "status":      { "order": 2,  "user": true, "owner": true },
+    "sentence":    { "order": 3,  "user": true, "owner": true },
+    "projections": { "order": 4,  "user": true, "owner": true },
+    "factors":     { "order": 5,  "user": true, "owner": true },
+    "timeline":    { "order": 6,  "user": true, "owner": true },
+    "charges":     { "order": 7,  "user": true, "owner": true },
+    "background":  { "order": 8,  "user": true, "owner": true },
+    "savin":       { "order": 9,  "user": true, "owner": true },
+    "prior":       { "order": 10, "user": true, "owner": true },
+    "financials":  { "order": 11, "user": true, "owner": true },
+    "grades":      { "order": 12, "user": true, "owner": true },
+    "age":         { "order": 13, "user": true, "owner": true },
+    "numbers":     { "order": 14, "user": true, "owner": true },
+    "resources":   { "order": 15, "user": true, "owner": true }
+  }
+}
