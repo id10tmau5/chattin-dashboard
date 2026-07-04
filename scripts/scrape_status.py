@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  scrape_status.py
 #  Author:       Rocky Cooper
-#  Version:      1.3.0
+#  Version:      1.3.1
 #  Description:  Headless-browser scraper for the PA DOC Inmate/Parolee Locator
 #                (inmatelocator.cor.pa.gov). The locator is a JavaScript-rendered,
 #                session-based portal that plain HTTP / web search cannot read, so
@@ -178,28 +178,28 @@ def capture_controls(page):
 
 def switch_to_supervised(page):
     """
-    Best-effort: switch the portal to the Department Supervised Individual Locator.
-    Tries radios/tabs/links/selects whose label mentions supervision. Returns True
-    if something plausible was clicked. Non-fatal if it can't find the control.
+    Switch the portal to the Department Supervised Individual (parolee) locator.
+    The selector is a radio button: <input name="check" value="parolee">. Falls
+    back to a text/label click. Returns True if the switch was made.
     """
-    candidates = [
-        'text=Department Supervised Individual',
-        'text=Supervised Individual',
-        'text=Parolee',
-        'label:has-text("Supervised")',
-        '[value*="supervis" i]',
-        '[id*="supervis" i]',
-        '[name*="supervis" i]',
-    ]
-    for sel in candidates:
+    for sel in ('input[name="check"][value="parolee"]',
+                'input[name="check"][value*="parol" i]'):
         try:
             el = page.query_selector(sel)
             if el:
-                el.click()
-                page.wait_for_timeout(1500)
+                el.check()
+                page.wait_for_timeout(1000)
                 return True
         except Exception:
             continue
+    try:
+        el = page.query_selector('text=Department Supervised Individual')
+        if el:
+            el.click()
+            page.wait_for_timeout(1000)
+            return True
+    except Exception:
+        pass
     return False
 
 
@@ -212,17 +212,16 @@ def scrape_search(query, mode, tag):
     and a landing-page control inventory) under debug/.
     """
     if mode == "number":
-        selectors = ('input[name*="number" i]', 'input[id*="number" i]',
-                     'input[placeholder*="number" i]', 'input[name*="inmate" i]',
-                     'input[type="text"]')
+        # Inmate Number field — id=inmateNumber (name is ambiguously shared).
+        selectors = ('#inmateNumber', 'input[id="inmateNumber"]',
+                     'input[name="inmatenumber"]', 'input[name*="inmate" i]')
     elif mode == "supervised":
-        selectors = ('input[name*="parole" i]', 'input[id*="parole" i]',
-                     'input[placeholder*="parole" i]', 'input[name*="number" i]',
-                     'input[name*="last" i]', 'input[type="text"]')
+        # Parole Number field — id=paroleNumber (shares name="inmatenumber", so id only).
+        selectors = ('#paroleNumber', 'input[id="paroleNumber"]',
+                     'input[id*="parole" i]', 'input[type="text"]')
     else:  # name
-        selectors = ('input[name*="last" i]', 'input[id*="last" i]',
-                     'input[placeholder*="last" i]', 'input[name*="lname" i]',
-                     'input[name*="name" i]', 'input[type="text"]')
+        selectors = ('#lastName', 'input[id="lastName"]', 'input[name="lastname"]',
+                     'input[name*="last" i]', 'input[type="text"]')
 
     page_text = ""
     with sync_playwright() as p:
