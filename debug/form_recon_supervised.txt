@@ -1,0 +1,72 @@
+A  name=  id=  type=  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Inmate Locator
+INPUT  name=check  id=  type=radio  placeholder=  text=inmate
+LABEL  name=  id=  type=  placeholder=  text=Inmate Locator
+LABEL  name=  id=  type=  placeholder=  text=Department Supervised Individual Locator
+INPUT  name=check  id=  type=radio  placeholder=  text=parolee
+LABEL  name=  id=  type=  placeholder=  text=First Name:
+INPUT  name=firstname  id=firstName  type=text  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Middle Name:
+INPUT  name=middlename  id=middleName  type=text  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Last Name:
+INPUT  name=lastname  id=lastName  type=text  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Inmate Number:
+INPUT  name=inmatenumber  id=inmateNumber  type=text  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Parole Number:
+INPUT  name=inmatenumber  id=paroleNumber  type=text  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Gender:
+SELECT  name=inmategender  id=inmateGender  type=select-one  placeholder=  text=All
+Male
+Female  options=[All | Male | Female]
+LABEL  name=  id=  type=  placeholder=  text=Committing County:
+SELECT  name=committingcounty  id=committingCounty  type=select-one  placeholder=  text=All
+ADAMS
+ALLEGHENY
+ARMSTRONG
+BEAVER
+BEDFORD
+BERKS  options=[All | ADAMS | ALLEGHENY | ARMSTRONG | BEAVER | BEDFORD | BERKS | BLAIR | BRADFORD | BUCKS | BUTLER | CAMBRIA | CAMERON | CARBON | CENTRE | CHESTER | CLARION | CLEARFIELD | CLINTON | COLUMBIA | CRAWFORD | CUMBERLAND | DAUPHIN | DELAWARE | ELK | ERIE | FAYETTE | FOREST | FRANKLIN | FULTON | GREENE | HUNTINGDON | INDIANA | JEFFERSON | JUNIATA | LACKAWANNA | LANCASTER | LAWRENCE | LEBANON | LEHIGH | LUZERNE | LYCOMING | MCKEAN | MERCER | MIFFLIN | MONROE | MONTGOMERY | MONTOUR | NORTHAMPTON | NORTHUMBERLAND | OUT OF STATE | PERRY | PHILADELPHIA | PIKE | POTTER | SCHUYLKILL | SNYDER | SOMERSET | SULLIVAN | SUSQUEHANNA | TIOGA | UNION | VENANGO | WARREN | WASHINGTON | WAYNE | WESTMORELAND | WYOMING | YORK]
+LABEL  name=  id=  type=  placeholder=  text=Current Location:
+SELECT  name=currentlocation  id=currentLocation  type=select-one  placeholder=  text=All
+ADAPPT TREATMENT SERVICE
+ADCM
+ALBION
+ALLE-KISK  options=[All | ADAPPT TREATMENT SERVICE | ADCM | ALBION | ALLE-KISKI PAVILION | ALLENTOWN CCC | ALLENTOWN CCC | AMOORE HOUSE | AMP-CEP - RIGHT TURN | ARMSTRONG COUNTY | ARMSTRONG COUNTY JAIL | ATKINS HOUSE | BEACON CENTER | BEAVER COUNTY JAIL | BEAVER COUNTY JAIL | BEDFORD COUNTY JAIL | BENNER TOWNSHIP | BERKS COUNTY JAIL | BERKS COUNTY REENTRY | BUTLER COUNTY | BUTLER COUNTY JAIL | CAMBRIA COUNTY | CAMBRIA COUNTY JAIL | CAMBRIDGE SPRINGS | CAMP HILL | CAPITOL PAVILION | CENTER COUNTY | CENTER COUNTY | CENTRE COUNTY JAIL | CHESTER | CHESTER COUNTY | CHESTER COUNTY JAIL | CLINTON COUNTY | CLINTON COUNTY | CLINTON COUNTY JAIL | COAL TOWNSHIP | COLUMBIA COUNTY PRISON | COMMUNITY CORRECTIONS | COMMUNITY HOUSE | CONEWAGO INDIANA | CONEWAGO PLACE | CONEWAGO POTTSVILLE | CONEWAGO SNYDER | CONEWAGO-WERNERSVILLE | CRESSON | CRISPUS ATTUCKS | DALLAS | DAUPHIN COUNTY REENTRY | DELEWARE COUNTY | DIAG &amp; REHAB CENTER | DIVERSIFIED HLTH-LUZERNE | EAGLEVILLE D&amp;A | EAGLEVILLE S.A.V.E. | ERIE AVENUE KINTOCK | ERIE CCC | FAYETTE | FEDERAL AUTH-HARRISBURG | FEDERAL AUTH-JOHNSTOWN | FFA/SRO | FOOD FOR ALL | FOOD FOR LIFE(VET CNTR) | FOREST | FOREST COUNTY | FRACKVILLE | FRANKLIN COUNTY REENTRY | GATEWAY REHAB ALIQUIPPA | GATEWAY-BRADDOCK | GATEWAY-ERIE | GATEWAY-SHEFFIELD | GAUDENZIA FIRST | GAUDENZIA HOUSE | GAUDENZIA NEW VIEW | GAUDENZIA PHILLY HOUSE | GAUDENZIA RE-ENTRY | GAUDENZIA-COMMON GROUND | GAUDENZIA-CONCEPT 90 | GAUDENZIA-SIENA HOUSE | GAUDENZIA/CROSSROADS | GLEN MILLS SCHOOL | GOODWILL INDUST OF PIT | GPCCC/KINTOCK GROUP | GRATERFORD | GREENE | GREENE COUNTY JAIL | GREENSBURG | HANNAH HOUSE | HARRISBURG CCC | HAZLETON TREATMENT CTR | HOSPITALITY HOUSE | HOUSE OF THE CROSSROADS | HOUTZDALE | HUNTINGDON | INDIANA COUNTY | INDIANA COUNTY JAIL | JEFFERSON COUNTY JAIL | JOHNSTOWN CCC | JOHNSTOWN CCC | JOHNSTOWN CCC | JOSEPH E. COLEMAN CENTER | KEENAN HOUSE/TT | KEYSTONE CORRECTIONAL | LACKAWANNA COUNTY | LACKAWANNA COUNTY | LACKAWANNA COUNTY JAIL | LAUREL HIGHLANDS | LAWERENCE COUNTY | LAWRENCE COUNTY JAIL | LEBANON CO. REENTRY | LEHIGH COUNTY | LEHIGH COUNTY JAIL | LEHIGH COUNTY PRISON | LIBERTY MANAGEMENT | LIBERTY MNGMNT NORTHWEST | LIBERTY PHOENIX | LUZERNE COUNTY | LUZERNE II | LYCOMING CO. PRE-RELEASE | LYCOMING COUNTY | LYCOMING HOUSE | MAHANOY | MCKEAN COUNTY PRISON | MERCER | MICHIGAN | MIFFLIN COUNTY JAIL | MINSEC ALTERNATIVES | MINSEC OF SCRANTON | MINSEC OF SCRANTON | MINSEC YORK STREET | MON YOUGH | MONTGOMERY CO RE-ENTRY | MUNCY | NEW DESTINY | ONWARDS, INC. | OUTBOUND HOMES | PENN PAVILION | PERRY COUNTY | PHILADELPHIA CCC #2 | PHILADELPHIA CCC #3 | PHILADELPHIA CCC #4 | PHILADELPHIA CCC #5 | PHOENIX | PINE GROVE | PITTSBURGH | PROGRESS CCC | PROMISE PLACE | QUEHANNA BOOT CAMP | RENEWAL #2 | RENEWAL, INC. | RETREAT | RIVERSIDE CCC | ROCKVIEW | SCRANTON CATH SOC SVCS | SCRANTON CATH SOC SVCS | SCRANTON CCC | SCRANTON CCC | SELF HELP (D&amp;A) | SELF HELP MOVEMENT, INC. | SELF, INC. | SHARON CCC | SMITHFIELD | SOMERSET | STONEBRIDGE/RHD | TIOGA COUNTY JAIL | TOMORROWS HOPE | TRAINING ACADEMY | TRANSITIONAL LIVING CTR | TREATMENT TRENDS/KEENAN | VALLEY FORGE MED CTR | VIRGINIA | VOLUNTEERS OF AMERICA | WASHINGTON HOUSE | WAYMART | WAYNE COUNTY | WAYNE COUNTY | WAYNE COUNTY JAIL | WERNERSVILLE CCC#18 | WERNERSVILLE CCC#27 | WERNERSVILLE CCC#30 | WESTMORELAND COUNTY JAIL | WHITE DEER RUN | YORK CCC | YORK COUNTY JAIL | YORK COUNTY REENTRY | YORK COUNTY WORK RELEASE]
+LABEL  name=  id=  type=  placeholder=  text=Citizenship:
+SELECT  name=inmatecitizen  id=inmateCitizen  type=select-one  placeholder=  text=All
+Afghanistan
+Aland Islands
+Albania
+Algeria
+Amer  options=[All | Afghanistan | Aland Islands | Albania | Algeria | American Samoa | Andorra | Angola | Anguilla | Antarctica | Antigua and Barbuda | Argentina | Armenia | Aruba | Australia | Austria | Azerbaijan | Bahamas | Bahrain | Bangladesh | Barbados | Belarus | Belgium | Belize | Benin | Bermuda | Bhutan | Bolivia | Bonaire, Sint Eustatius and Saba | Bosnia and Herzegowina | Botswana | Bouvet Island | Brazil | British Indian Ocean Territory | Brunei Darussalam | Bulgaria | Burkina Faso | Burundi | Cambodia | Cameroon | Canada | Cape Verde | Cayman Islands | Central African Republic | Chad | Chile | China | Christmas Island | Cocos (Keeling) Islands | Colombia | Comoros | Congo, Democratic Republic Of (Was Zaire) | Congo, Peoples Republic Of | Cook Islands | Costa Rica | Cote d Ivoire | Croatia (Local Name: Hrvatska) | Cuba | Curacao | Cyprus | Czech Republic | Denmark | Djibouti | Dominica | Dominican Republic | Ecuador | Egypt | El Salvador | Equatorial Guinea | Eritrea | Estonia | Ethiopia | Falkland Islands (Malvinas) | Faroe Islands | Fiji | Finland | France | French Guiana | French Polynesia | French Southern Territories | Gabon | Gambia | Georgia | Germany | Ghana | Gibraltar | Greece | Greenland | Grenada | Guadeloupe | Guam | Guatemala | Guernsey | Guinea | Guinea-Bissau | Guyana | Haiti | Heard and McDonald Islands | Holy See (Vatican City State) | Honduras | Hong Kong | Hungary | Iceland | India | Indonesia | Iran (Islamic Republic Of) | Iraq | Ireland | Isle of Man | Israel | Italy | Jamaica | Japan | Jersey | Jordan | Kazakhstan | Kenya | Kiribati | Korea, Democratic Peoples Republic Of | Korea, Republic Of | Kuwait | Kyrgyzstan | Lao Peoples Democratic Republic | Latvia | Lebanon | Lesotho | Liberia | Libyan Arab Jamahiriya | Liechtenstein | Lithuania | Luxembourg | Macau | Macedonia, The Former Yugoslav Republic Of | Madagascar | Malawi | Malaysia | Maldives | Mali | Malta | Marshall Islands | Martinique | Mauritania | Mauritius | Mayotte | Mexico | Micronesia, Federated States Of | Moldova, Republic Of | Monaco | Mongolia | Montenegro | Montserrat | Morocco | Mozambique | Myanmar | Namibia | Nauru | Nepal | Netherlands | New Caledonia | New Zealand | Nicaragua | Niger | Nigeria | Niue | Norfolk Island | Northern Mariana Islands | Norway | Oman | Pakistan | Palau | Palestinian Territory, Occupied | Panama | Papua New Guinea | Paraguay | Peru | Philippines | Pitcairn | Poland | Portugal | Puerto Rico | Qatar | Reunion | Romania | Russian Federation | Rwanda | Saint Barthelemy | Saint Kitts and Nevis | Saint Lucia | Saint Martin (French Part) | Saint Vincent and the Grenadines | Samoa | San Marino | Sao Tome and Principe | Saudi Arabia | Senegal | Serbia | Seychelles | Sierra Leone | Singapore | Sint Maarten (Dutch Part) | Slovakia (Slovak Republic) | Slovenia | Solomon Islands | Somalia | South Africa | South Georgia and The South Sandwich Islands | South Sudan | Spain | Sri Lanka | St. Helena | St. Pierre and Miquelon | Sudan | Suriname | Svalbard and Jan Mayen Islands | Swaziland | Sweden | Switzerland | Syrian Arab Republic | Taiwan | Tajikistan | Tanzania, United Republic Of | Thailand | Timor-Leste | Togo | Tokelau | Tonga | Trinidad and Tobago | Tunisia | Turkey | Turkmenistan | Turks and Caicos Islands | Tuvalu | Uganda | Ukraine | United Arab Emirates | United Kingdom | United States Minor Outlying Islands | United States of America | Uruguay | Uzbekistan | Vanuatu | Venezuela | Vietnam | Virgin Islands (British) | Virgin Islands (U.S.) | Wallis and Futuna Islands | Western Sahara | Yemen | Zambia | Zimbabwe]
+LABEL  name=  id=  type=  placeholder=  text=Date of Birth / Age (Choose one)
+LABEL  name=  id=  type=  placeholder=  text=Date of Birth:
+INPUT  name=contact_project  id=  type=radio  placeholder=  text=dob
+LABEL  name=  id=  type=  placeholder=  text=Date of Birth:
+INPUT  name=dp  id=  type=text  placeholder=mm/dd/yyyy  text=
+BUTTON  name=  id=  type=button  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Approx. Age:
+INPUT  name=contact_project  id=  type=radio  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Approx. Age:
+INPUT  name=inmateage  id=inmateAge  type=text  placeholder=  text=
+LABEL  name=  id=  type=  placeholder=  text=Name
+INPUT  name=sortBy  id=  type=radio  placeholder=  text=1
+LABEL  name=  id=  type=  placeholder=  text=Name
+LABEL  name=  id=  type=  placeholder=  text=Inmate Number
+INPUT  name=sortBy  id=  type=radio  placeholder=  text=2
+LABEL  name=  id=  type=  placeholder=  text=Inmate Number
+LABEL  name=  id=  type=  placeholder=  text=Date of Birth
+INPUT  name=sortBy  id=  type=radio  placeholder=  text=3
+LABEL  name=  id=  type=  placeholder=  text=Date of Birth
+LABEL  name=  id=  type=  placeholder=  text=Committing County
+INPUT  name=sortBy  id=  type=radio  placeholder=  text=4
+LABEL  name=  id=  type=  placeholder=  text=Committing County
+LABEL  name=  id=  type=  placeholder=  text=Location
+INPUT  name=sortBy  id=  type=radio  placeholder=  text=5
+LABEL  name=  id=  type=  placeholder=  text=Location
+BUTTON  name=  id=  type=button  placeholder=  text=Clear
+BUTTON  name=  id=  type=button  placeholder=  text=Search
+A  name=  id=  type=  placeholder=  text=Frequently Asked Questions
+A  name=  id=  type=  placeholder=  text=Disclaimer
+A  name=  id=  type=  placeholder=  text=Right To Know
+BUTTON  name=  id=  type=submit  placeholder=  text=CLOSE
