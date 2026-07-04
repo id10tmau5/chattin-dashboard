@@ -237,11 +237,16 @@ function CaseDashboard() {
   const [ovrStatus,     setOvrStatus]     = useState('Inmate');
   const [ovrLocation,   setOvrLocation]   = useState('');
   const [ovrNotes,      setOvrNotes]      = useState('');
-  const [ovrLock,       setOvrLock]       = useState(true);
+  const [ovrLock,       setOvrLock]       = useState(() => {
+    try { const v = localStorage.getItem('chattin_ovr_lock'); return v === null ? false : v === 'true'; } catch { return false; }
+  });
   const [ovrBusy,       setOvrBusy]       = useState(false);
   const [ovrMsg,        setOvrMsg]        = useState(null);
   const [dbgBusy,       setDbgBusy]       = useState(false);
   const [dbgMsg,        setDbgMsg]        = useState(null);
+  const [debugEnabled,  setDebugEnabled]  = useState(() => {
+    try { return localStorage.getItem('chattin_debug_enabled') === 'true'; } catch { return false; }
+  });
   const [checkCooldown, setCheckCooldown] = useState(0);    // seconds remaining before Check for Updates re-enables
   const [buildStatus,   setBuildStatus]   = useState('idle'); // idle|loading|ok|err
   const [buildMsg2,     setBuildMsg2]     = useState(null);
@@ -402,22 +407,39 @@ function CaseDashboard() {
   };
 
   // Owner manual override → writes the chosen status straight to status.json.
-  const handleManualOverride = () => dispatchStatusWorkflow(
+  const handleManualOverride = () => { if (!debugEnabled) return; return dispatchStatusWorkflow(
     { mode: 'manual', manual_status: ovrStatus, manual_location: ovrLocation, manual_notes: ovrNotes, manual_lock: ovrLock ? 'true' : 'false' },
     { okMsg: '✓ Override submitted — tap Check for Updates in ~30 seconds.', cooldown: 30, setMsg: setOvrMsg, setBusy: setOvrBusy }
-  );
+  ); };
+
+  // Persist the override-lock preference so it survives page reloads.
+  const toggleOvrLock = (checked) => {
+    setOvrLock(checked);
+    try { localStorage.setItem('chattin_ovr_lock', checked ? 'true' : 'false'); } catch (e) {}
+  };
+
+  // Enable/disable the debug tools; persisted so they stay off by default and
+  // can't be fired by accident until deliberately switched on.
+  const toggleDebugEnabled = () => {
+    setDebugEnabled(prev => {
+      const next = !prev;
+      try { localStorage.setItem('chattin_debug_enabled', next ? 'true' : 'false'); } catch (e) {}
+      if (!next) setDbgMsg(null);
+      return next;
+    });
+  };
 
   // Owner debug scrape → runs the scrape AND commits debug/ (page text + screenshot) for review.
-  const handleScrapeDebug = () => dispatchStatusWorkflow(
+  const handleScrapeDebug = () => { if (!debugEnabled) return; return dispatchStatusWorkflow(
     { mode: 'scrape-debug' },
     { okMsg: '✓ Debug scrape running — commits debug/ for review in ~90s.', cooldown: 90, setMsg: setDbgMsg, setBusy: setDbgBusy }
-  );
+  ); };
 
   // Owner cleanup → removes the committed debug/ folder from the repo.
-  const handleClearDebug = () => dispatchStatusWorkflow(
+  const handleClearDebug = () => { if (!debugEnabled) return; return dispatchStatusWorkflow(
     { mode: 'clear-debug' },
     { okMsg: '✓ Clearing debug/ from the repo…', cooldown: 0, setMsg: setDbgMsg, setBusy: setDbgBusy }
-  );
+  ); };
 
   const handleRunCheck = async () => {
     const token = getGhToken();
@@ -506,7 +528,7 @@ function CaseDashboard() {
           <span style={{ marginLeft:'auto', color:C.textDim, fontSize:18, lineHeight:1, display:'inline-block', transform:statusCheckerOpen?'rotate(0deg)':'rotate(-90deg)', transition:'transform 0.2s' }}>▾</span>
         </div>
 
-        {ownerMode && configOpen && (
+        {ownerMode && configOpen && statusCheckerOpen && (
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, padding:'14px 16px', marginBottom:14 }}>
             <div style={{ fontFamily:C.mono, fontSize:9, color:C.textDim, letterSpacing:1.5, marginBottom:12 }}>CONFIGURATION</div>
             <div style={{ fontSize:10, color:C.textDim, lineHeight:1.6, marginBottom:14, padding:'8px 10px', background:C.bg, borderRadius:6, border:`1px solid ${C.border}` }}>
@@ -539,13 +561,13 @@ function CaseDashboard() {
               </div>
               <input type="text" placeholder="Note (optional)" value={ovrNotes} onChange={e => setOvrNotes(e.target.value)}
                 style={{ width:'100%', boxSizing:'border-box', padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, marginBottom:8 }} />
-              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:C.textSub, marginBottom:8, cursor:'pointer' }}>
-                <input type="checkbox" checked={ovrLock} onChange={e => setOvrLock(e.target.checked)} style={{ cursor:'pointer' }} />
-                🔒 Lock — keep this value until I change it (daily scrapes won't override it)
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:debugEnabled ? C.textSub : C.textDim, opacity:debugEnabled ? 1 : 0.5, marginBottom:8, cursor:debugEnabled ? 'pointer' : 'not-allowed' }}>
+                <input type="checkbox" checked={ovrLock} disabled={!debugEnabled} onChange={e => toggleOvrLock(e.target.checked)} style={{ cursor:debugEnabled ? 'pointer' : 'not-allowed' }} />
+                🔒 Lock — keep this value until I change it (daily scrapes won't override it){!debugEnabled && ' · enable debug tools to change'}
               </label>
-              <button onClick={handleManualOverride} disabled={ovrBusy}
-                style={{ width:'100%', padding:'8px 14px', borderRadius:6, border:`1px solid ${C.orange}`, background:ovrBusy ? C.surface : C.orangeFaint, color:C.orange, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:ovrBusy ? 'wait' : 'pointer' }}>
-                {ovrBusy ? '⏳ Submitting…' : '🛠 Apply Override'}
+              <button onClick={handleManualOverride} disabled={ovrBusy || !debugEnabled}
+                style={{ width:'100%', padding:'8px 14px', borderRadius:6, border:`1px solid ${C.orange}`, background:ovrBusy ? C.surface : C.orangeFaint, color:C.orange, fontFamily:C.mono, fontSize:11, fontWeight:700, opacity:debugEnabled ? 1 : 0.4, cursor:(ovrBusy || !debugEnabled) ? 'not-allowed' : 'pointer' }}>
+                {ovrBusy ? '⏳ Submitting…' : debugEnabled ? '🛠 Apply Override' : '🛠 Apply Override · enable debug tools'}
               </button>
               {ovrMsg && <div style={{ fontSize:11, marginTop:6, color:ovrMsg.startsWith('✓') ? C.green : C.red }}>{ovrMsg}</div>}
               <div style={{ fontSize:10, color:C.textDim, lineHeight:1.5, marginTop:8 }}>
@@ -556,13 +578,20 @@ function CaseDashboard() {
               <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
                 <span style={{ color:C.blue }}>🐞 Debug / Maintenance</span> <span style={{ color:C.textDim, fontSize:10 }}>— for retuning the scraper if the portal changes</span>
               </div>
-              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                <button onClick={handleScrapeDebug} disabled={dbgBusy}
-                  style={{ flex:1, minWidth:140, padding:'8px 12px', borderRadius:6, border:`1px solid ${C.blue}`, background:dbgBusy ? C.surface : C.blueFaint, color:C.blue, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:dbgBusy ? 'wait' : 'pointer' }}>
+              {/* Master toggle — the debug actions stay disabled until deliberately enabled */}
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:debugEnabled ? C.blue : C.textSub, marginBottom:10, cursor:'pointer', userSelect:'none' }}>
+                <span onClick={toggleDebugEnabled} style={{ position:'relative', display:'inline-block', width:38, height:20, flexShrink:0, borderRadius:20, background:debugEnabled ? C.blue : C.border, transition:'background 0.2s' }}>
+                  <span style={{ position:'absolute', top:2, left:debugEnabled ? 20 : 2, width:16, height:16, borderRadius:'50%', background:'#fff', transition:'left 0.2s' }} />
+                </span>
+                <span onClick={toggleDebugEnabled}>{debugEnabled ? 'Debug tools ENABLED' : 'Enable debug tools'}</span>
+              </label>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', opacity:debugEnabled ? 1 : 0.4 }}>
+                <button onClick={handleScrapeDebug} disabled={dbgBusy || !debugEnabled}
+                  style={{ flex:1, minWidth:140, padding:'8px 12px', borderRadius:6, border:`1px solid ${C.blue}`, background:dbgBusy ? C.surface : C.blueFaint, color:C.blue, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:(dbgBusy || !debugEnabled) ? 'not-allowed' : 'pointer' }}>
                   🐞 Scrape + Debug
                 </button>
-                <button onClick={handleClearDebug} disabled={dbgBusy}
-                  style={{ flex:1, minWidth:140, padding:'8px 12px', borderRadius:6, border:`1px solid ${C.red}`, background:dbgBusy ? C.surface : C.redFaint, color:C.red, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:dbgBusy ? 'wait' : 'pointer' }}>
+                <button onClick={handleClearDebug} disabled={dbgBusy || !debugEnabled}
+                  style={{ flex:1, minWidth:140, padding:'8px 12px', borderRadius:6, border:`1px solid ${C.red}`, background:dbgBusy ? C.surface : C.redFaint, color:C.red, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:(dbgBusy || !debugEnabled) ? 'not-allowed' : 'pointer' }}>
                   🧹 Clear Debug
                 </button>
               </div>
