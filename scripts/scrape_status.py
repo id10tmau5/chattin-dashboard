@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #  scrape_status.py
 #  Author:       Rocky Cooper
-#  Version:      1.3.2
+#  Version:      1.3.3
 #  Description:  Headless-browser scraper for the PA DOC Inmate/Parolee Locator
 #                (inmatelocator.cor.pa.gov). The locator is a JavaScript-rendered,
 #                session-based portal that plain HTTP / web search cannot read, so
@@ -91,11 +91,26 @@ def classify(text):
     Map one locator view's rendered text to (status, location, notes, confidence).
     status is one of: Inmate, Parolee, Unknown. 'Unknown' means this view had no
     usable match — the caller decides what to do next (try another pass / Phase 3).
+
+    The portal serves two result views distinguished by their header:
+      "Inmate Search Results"                        -> incarcerated
+      "Department Supervised Individual Search Results" -> on parole/supervision
+    The supervised view only exposes a State column (no facility/district), so a
+    matched row there is treated as Parolee regardless of the parsed location.
     """
+    tl = text.lower()
+    # Unique to the parole results header — the disclaimer says "Locator", not
+    # "Search Results", so this won't false-match on the always-present disclaimer.
+    supervised_view = "supervised individual search results" in tl
+
     row = find_person_row(text)
     if row:
         rl  = row.lower()
         loc = parse_location(row)
+        if supervised_view:
+            return ("Parolee", None,
+                    "Listed in the Department Supervised Individual (parole) locator "
+                    "— under community supervision.", "High")
         if any(k in rl for k in PAROLE_HINTS):
             return ("Parolee", loc,
                     f"Locator indicates community supervision{' at ' + loc if loc else ''}.",
@@ -108,7 +123,7 @@ def classify(text):
                 "Record matched but status/location could not be parsed — see debug artifact.",
                 "Low")
 
-    if any(p in text.lower() for p in NO_HIT_PATTERNS):
+    if any(p in tl for p in NO_HIT_PATTERNS):
         return ("Unknown", None, "No matching record in this locator view.", "Low")
     return ("Unknown", None, "No matching record parsed from this view — see debug artifact.", "Low")
 
