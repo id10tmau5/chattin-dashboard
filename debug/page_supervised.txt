@@ -1,4 +1,4 @@
-Inmate Search Results
+Department Supervised Individual Search Results
  Table Tile
 Records Per Page:
 4
@@ -7,20 +7,13 @@ Records Per Page:
 16
 20
 32
-Inmate
+Parole
 Number	Full
-Name	Date of Birth
-.	Current
-Location	Committing
-County
-PE1239	JACQUELINE ELIZABETH CHATTIN	02/21/1991	CAMBRIDGE SPRINGS	SCHUYLKILL
+Name	Date of
+Birth .	State
+.
 
 
-<<
-<
-1
->
->>
 Back to Search
 Department of Corrections
 Frequently Asked Questions
