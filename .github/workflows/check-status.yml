@@ -110,6 +110,8 @@ jobs:
             ${{ github.event_name == 'schedule'
                 && 'GitHub Actions (automatic daily scrape)'
                 || 'GitHub Actions (manual scrape)' }}
+          # In scrape-debug mode, also run the supervised-locator pass for recon/capture.
+          SCRAPE_DEBUG: ${{ inputs.mode == 'scrape-debug' && 'true' || 'false' }}
         run: python3 scripts/scrape_status.py
 
       - name: Upload scrape debug artifacts
