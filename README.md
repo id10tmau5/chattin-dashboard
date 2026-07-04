@@ -25,7 +25,13 @@ All displayed figures (days in custody, days past minimum, % served, current age
 
 ## Status Checks & Manual Override
 
-The PA DOC Inmate Locator is a JavaScript-rendered, session-based portal that plain HTTP / web search cannot read. `scripts/scrape_status.py` drives a real headless Chromium instance (Playwright), searches by inmate number, parses the result row, and writes `status.json`.
+The PA DOC Inmate Locator is a JavaScript-rendered, session-based portal that plain HTTP / web search cannot read. `scripts/scrape_status.py` drives a real headless Chromium instance (Playwright) and resolves custody status in up to three stages:
+
+1. **Inmate lookup** — searches the Inmate Locator by inmate number. A hit → `Inmate` + facility.
+2. **Parole lookup** — if not incarcerated, switches to the Department Supervised Individual (parolee) locator (via its in-page radio) and searches by parole number. A hit → `Parolee`.
+3. **Discharge / unknown** — absent from both: if the maximum sentence date has passed → `Discharged`; otherwise an honest `Unknown` (never asserts discharge without evidence).
+
+An owner **lock** or **manual override** always takes precedence over the automated result.
 
 `check-status.yml` runs in one of four **modes** (chosen by the `workflow_dispatch` `mode` input; the daily cron always uses plain `scrape`):
 
@@ -36,9 +42,9 @@ The PA DOC Inmate Locator is a JavaScript-rendered, session-based portal that pl
 | `manual` | Writes an owner-supplied status straight to `status.json`. Honors the lock flag. |
 | `clear-debug` | Removes the `debug/` folder from the repo. |
 
-**Manual override + lock** (⚙ Setup → *Manual Status Override*): choose a status (Inmate / Parolee / Discharged / Unknown), optional location and note. With **🔒 Lock** checked, `status.json` gets `locked: true` and the automated scrape leaves it untouched until the owner clears or replaces it — useful for pinning a value. Uncheck Lock to hand control back to the daily scrape.
+**Manual override + lock** (⚙ Setup → *Manual Status Override*): choose a status (Inmate / Parolee / Discharged / Unknown), optional location and note. With **🔒 Lock** checked, `status.json` gets `locked: true` and the automated scrape leaves it untouched until the owner clears or replaces it — useful for pinning a value. Lock is persisted and defaults **off**, so the displayed status tracks the real scrape unless deliberately pinned. (The lock checkbox and Apply button are only editable while debug tools are enabled.)
 
-**Debug tooling** (⚙ Setup → *Debug / Maintenance*): **🐞 Scrape + Debug** runs a scrape and commits `debug/page.txt` + `debug/screenshot.png` so the raw portal result can be reviewed; **🧹 Clear Debug** removes them. Normal and scheduled runs never commit debug output.
+**Debug tooling** (⚙ Setup → *Debug / Maintenance*): an **Enable debug tools** master toggle (persisted, default off) gates the whole owner-maintenance surface so nothing fires by accident. When on: **🐞 Scrape + Debug** runs a scrape and commits `debug/` (rendered page text + screenshot, plus `form_recon_*.txt` control inventories and `switch_result.txt`) for review; **🧹 Clear Debug** removes them. The manual-override fields, lock checkbox, and Apply button are gated by the same toggle. Normal and scheduled runs never commit debug output.
 
 > The status check makes **no Anthropic API calls** — the `ANTHROPIC_API_KEY` secret is no longer used.
 
@@ -66,9 +72,10 @@ The PA DOC Inmate Locator is a JavaScript-rendered, session-based portal that pl
 ### Status check
 | File | Description |
 |------|-------------|
-| `scripts/scrape_status.py` | Playwright headless scraper. Searches the locator by inmate number, parses the result, writes `status.json`. Respects the owner lock. |
+| `scripts/scrape_status.py` | Playwright headless scraper. Multi-pass: inmate lookup → parole lookup → discharge/unknown. Writes `status.json`. Respects the owner lock. |
 | `status.json` | Latest DOC custody status. Written by `check-status.yml`. Read by the “Check for Updates” button. |
-| `debug/` | Scrape debug output (`page.txt`, `screenshot.png`). Git-ignored; committed only in `scrape-debug` mode, and also uploaded as a 7-day workflow artifact. |
+| `debug/` | Scrape debug output (`page.txt`, `screenshot.png`, `form_recon_*.txt`, `switch_result.txt`). Git-ignored; committed only in `scrape-debug` mode, and also uploaded as a 7-day workflow artifact. |
+| `config.json` | Section-layout schema (per-section order + user/owner visibility + `desktopColumns`). Groundwork for the owner-editable layout system — not yet consumed by the UI. |
 
 ### Workflows
 | File | Trigger | Description |
@@ -108,7 +115,7 @@ By default the dashboard shows only the status display and a single button. Deve
 | Toggle on mobile | 5 rapid taps on the footer’s “SOURCE:” line |
 | State persists | Stored in `localStorage` — stays unlocked across visits on that browser |
 
-Owner mode reveals: **Run Status Check** button, **↻ compile** button, and the **⚙ Setup** panel (access token, manual override + lock, and debug / maintenance tools).
+Owner mode reveals: **Run Status Check** button, **↻ compile** button, and the **⚙ Setup** panel (access token, manual override + lock, and debug / maintenance tools behind an **Enable debug tools** toggle).
 
 ---
 
