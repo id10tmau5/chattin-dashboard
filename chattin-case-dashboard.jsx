@@ -1,4 +1,68 @@
-const { useState, useEffect, useMemo, useRef } = React;
+const { useState, useEffect, useMemo, useRef, useContext, createContext } = React;
+
+// ── Section-layout system ────────────────────────────────────────────────────
+// Carries the live section-layout config (from config.json) to every Section so
+// each block can self-apply its order, column width, and per-viewer visibility.
+const LayoutContext = createContext(null);
+
+// Canonical block registry: [key, display name] in default top-to-bottom order.
+const SECTION_META = [
+  ['profile','PA DOC Inmate Profile'], ['status','DOC Status Checker'],
+  ['sentence','Sentence Status'], ['projections','Parole Release Projections'],
+  ['factors','Parole Board Factor Analysis'], ['timeline','Case Timeline'],
+  ['charges','Charges & Sentencing'], ['background','Case Background'],
+  ['savin','Automatic Custody Notifications'], ['prior','Prior Criminal Record'],
+  ['financials','Financial Obligations'], ['grades','PA Offense Grade Scale'],
+  ['age','Subject Age Profile'], ['numbers','By the Numbers'],
+  ['resources','Official Resources & Source Documents'],
+];
+
+// Default layout used until config.json loads (all visible, 2-column desktop).
+const DEFAULT_LAYOUT = {
+  version: 1,
+  layout: { desktopColumns: 2 },
+  sections: Object.fromEntries(SECTION_META.map(([k], i) => [k, { order: i + 1, user: true, owner: true }])),
+};
+
+// Merge a fetched config with defaults so unknown/new keys stay visible and
+// appended (never dropped), and malformed values fall back safely.
+const mergeLayout = (cfg) => {
+  cfg = cfg || {};
+  const cols = (cfg.layout && (cfg.layout.desktopColumns === 1 || cfg.layout.desktopColumns === 2))
+    ? cfg.layout.desktopColumns : 2;
+  const out = { version: 1, layout: { desktopColumns: cols }, sections: {} };
+  SECTION_META.forEach(([k], i) => {
+    const c = (cfg.sections && cfg.sections[k]) || {};
+    out.sections[k] = {
+      order: Number.isFinite(c.order) ? c.order : (i + 1),
+      user:  c.user  !== false,
+      owner: c.owner !== false,
+    };
+  });
+  return out;
+};
+
+// Compute one block's flex style (order + column width + visibility) from the
+// layout context. Reused by every Section and the non-Section Status widget.
+const blockLayoutStyle = (key, ctx) => {
+  if (!ctx) return {};
+  const { layout, viewer, isMobile } = ctx;
+  const s = (layout.sections && layout.sections[key]) || { order: 99, user: true, owner: true };
+  const visible = viewer === 'owner' ? s.owner !== false : s.user !== false;
+  const cols = (layout.layout && layout.layout.desktopColumns) || 2;
+  return {
+    order: s.order || 99,
+    width: (isMobile || cols === 1) ? '100%' : 'calc(50% - 10px)',
+    display: visible ? undefined : 'none',
+  };
+};
+
+// Wrapper that applies layout styling to a non-Section block (the Status widget).
+const LayoutBlock = ({ cfgKey, children }) => {
+  const ctx = useContext(LayoutContext);
+  return <div style={{ marginBottom: 24, ...blockLayoutStyle(cfgKey, ctx) }}>{children}</div>;
+};
+
 
 // Absolute base URL for PDFs (needed for Google Docs Viewer on mobile)
 const PDF_BASE = 'https://id10tmau5.github.io/chattin-dashboard/';
@@ -112,6 +176,7 @@ const ProgressBar = ({ pct, color, height = 8, C }) => (
 );
 
 const Section = ({ title, icon, children, accent, C, sectionKey, defaultOpen = true }) => {
+  const layoutCtx = useContext(LayoutContext);
   const lsKey = sectionKey ? `chattin_sec_${sectionKey}` : null;
   const [isOpen, setIsOpen] = useState(() => {
     if (!lsKey) return true;
@@ -126,7 +191,7 @@ const Section = ({ title, icon, children, accent, C, sectionKey, defaultOpen = t
   }, []);
   const toggle = () => { if (!lsKey) return; setIsOpen(o => { const next = !o; try { localStorage.setItem(lsKey, next ? '1' : '0'); } catch {} return next; }); };
   return (
-    <div style={{ marginBottom: 24 }}>
+    <div style={{ marginBottom: 24, ...blockLayoutStyle(sectionKey, layoutCtx) }}>
       <div onClick={lsKey ? toggle : undefined} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:isOpen?14:0, borderBottom:`1px solid ${C.border}`, paddingBottom:10, cursor:lsKey?'pointer':'default', userSelect:'none' }}>
         {icon && <span style={{ fontSize: 16 }}>{icon}</span>}
         <span style={{ fontFamily:C.mono, fontSize:11, fontWeight:700, letterSpacing:2, textTransform:'uppercase', color:accent||C.gold }}>{title}</span>
@@ -221,6 +286,14 @@ function CaseDashboard() {
   const SECRET_NAME = 'ANTHROPIC_API_KEY';
 
   const [docStatus,     setDocStatus]     = useState(null);
+  const [layout,        setLayout]        = useState(DEFAULT_LAYOUT);
+  // Load the published section-layout config on mount (cache-busted).
+  useEffect(() => {
+    fetch('config.json?t=' + Date.now())
+      .then(r => (r.ok ? r.json() : null))
+      .then(cfg => { if (cfg) setLayout(mergeLayout(cfg)); })
+      .catch(() => {});
+  }, []);
   const [lastChecked,   setLastChecked]   = useState(null);
   const [lastFetched,   setLastFetched]   = useState(() => {
     try { const v = localStorage.getItem('chattin_last_fetched'); return v ? new Date(v) : null; } catch { return null; }
@@ -247,6 +320,8 @@ function CaseDashboard() {
   const [debugEnabled,  setDebugEnabled]  = useState(() => {
     try { return localStorage.getItem('chattin_debug_enabled') === 'true'; } catch { return false; }
   });
+  const [layoutMsg,     setLayoutMsg]     = useState(null);
+  const [layoutBusy,    setLayoutBusy]    = useState(false);
   const [checkCooldown, setCheckCooldown] = useState(0);    // seconds remaining before Check for Updates re-enables
   const [buildStatus,   setBuildStatus]   = useState('idle'); // idle|loading|ok|err
   const [buildMsg2,     setBuildMsg2]     = useState(null);
@@ -429,6 +504,53 @@ function CaseDashboard() {
     });
   };
 
+  // ── Section-layout owner controls ──────────────────────────────────────────
+  // Move a section to a new 1-based position and re-index every section so there
+  // are never duplicate numbers or gaps (a clean 1..N sequence).
+  const setLayoutOrder = (key, newOrder) => {
+    setLayout(prev => {
+      const ordered = SECTION_META.map(([k]) => k)
+        .sort((a, b) => prev.sections[a].order - prev.sections[b].order);
+      const from = ordered.indexOf(key);
+      ordered.splice(from, 1);
+      ordered.splice(Math.max(0, Math.min(ordered.length, newOrder - 1)), 0, key);
+      const sections = { ...prev.sections };
+      ordered.forEach((k, i) => { sections[k] = { ...sections[k], order: i + 1 }; });
+      return { ...prev, sections };
+    });
+  };
+  // Toggle a section's visibility for one viewer type ('user' or 'owner').
+  const toggleLayoutVis = (key, who) => {
+    setLayout(prev => ({ ...prev, sections: { ...prev.sections,
+      [key]: { ...prev.sections[key], [who]: !prev.sections[key][who] } } }));
+  };
+  // Set desktop column count (1 or 2; mobile is always single-column).
+  const setLayoutColumns = (n) => {
+    setLayout(prev => ({ ...prev, layout: { ...prev.layout, desktopColumns: n } }));
+  };
+  // Publish the current layout to config.json via the GitHub Contents API
+  // (instant — GET the file's SHA, then PUT the new content). Gated by debug tools.
+  const publishLayout = async () => {
+    if (!debugEnabled) return;
+    const token = getGhToken();
+    if (!token) { setLayoutMsg('⚠ Enter your access token above first.'); setTimeout(() => setLayoutMsg(null), 5000); return; }
+    setLayoutBusy(true); setLayoutMsg('Publishing…');
+    const api = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/config.json`;
+    const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+    const payload = { version: 1, updatedAt: new Date().toISOString(), layout: layout.layout, sections: layout.sections };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2) + '\n')));
+    try {
+      const getRes = await fetch(api, { headers });
+      const cur = getRes.ok ? await getRes.json() : null;
+      const body = { message: 'chore: update section layout via dashboard', content };
+      if (cur && cur.sha) body.sha = cur.sha;
+      const putRes = await fetch(api, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (putRes.ok) { setLayoutMsg('✓ Layout published — live within ~1 minute.'); }
+      else { const e = await putRes.json().catch(() => ({})); setLayoutMsg('✕ ' + (e.message || putRes.status)); }
+    } catch (e) { setLayoutMsg('✕ ' + (e.message || 'request failed')); }
+    setLayoutBusy(false);
+  };
+
   // Owner debug scrape → runs the scrape AND commits debug/ (page text + screenshot) for review.
   const handleScrapeDebug = () => { if (!debugEnabled) return; return dispatchStatusWorkflow(
     { mode: 'scrape-debug' },
@@ -600,6 +722,48 @@ function CaseDashboard() {
                 <span style={{ color:C.blue }}>Scrape + Debug</span> runs a lookup and commits <code>debug/</code> (rendered page text + screenshot) so the result can be reviewed. <span style={{ color:C.red }}>Clear Debug</span> removes that folder once you're done. Normal runs never commit debug output.
               </div>
             </div>
+            {debugEnabled && (
+            <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:11, fontWeight:700, marginBottom:10 }}>
+                <span style={{ color:C.purple }}>🎛 Section Layout</span> <span style={{ color:C.textDim, fontSize:10 }}>— reorder / show / hide sections per viewer</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, fontSize:11, color:C.textSub }}>
+                <span>Desktop columns:</span>
+                {[1,2].map(n => (
+                  <button key={n} onClick={() => setLayoutColumns(n)}
+                    style={{ padding:'4px 12px', borderRadius:6, border:`1px solid ${layout.layout.desktopColumns===n ? C.purple : C.border}`, background:layout.layout.desktopColumns===n ? C.purpleFaint : C.surface, color:layout.layout.desktopColumns===n ? C.purple : C.textSub, fontFamily:C.mono, fontSize:11, cursor:'pointer' }}>
+                    {n}
+                  </button>
+                ))}
+                <span style={{ color:C.textDim, fontSize:10 }}>(mobile is always 1)</span>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'54px 1fr 40px 44px', gap:6, fontSize:9, color:C.textDim, marginBottom:4, textTransform:'uppercase', letterSpacing:0.5 }}>
+                <span>Order</span><span>Section</span><span style={{textAlign:'center'}}>User</span><span style={{textAlign:'center'}}>Owner</span>
+              </div>
+              {SECTION_META.slice().sort((a,b) => layout.sections[a[0]].order - layout.sections[b[0]].order).map(([key,name]) => {
+                const s = layout.sections[key];
+                return (
+                  <div key={key} style={{ display:'grid', gridTemplateColumns:'54px 1fr 40px 44px', gap:6, alignItems:'center', marginBottom:4 }}>
+                    <select value={s.order} onChange={e => setLayoutOrder(key, parseInt(e.target.value,10))}
+                      style={{ padding:'3px 4px', borderRadius:5, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11 }}>
+                      {SECTION_META.map((_,i) => <option key={i} value={i+1}>{i+1}</option>)}
+                    </select>
+                    <span style={{ fontSize:11, color:C.textSub, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>
+                    <input type="checkbox" checked={s.user} onChange={() => toggleLayoutVis(key,'user')} style={{ justifySelf:'center', cursor:'pointer' }} />
+                    <input type="checkbox" checked={s.owner} onChange={() => toggleLayoutVis(key,'owner')} style={{ justifySelf:'center', cursor:'pointer' }} />
+                  </div>
+                );
+              })}
+              <button onClick={publishLayout} disabled={layoutBusy}
+                style={{ width:'100%', marginTop:10, padding:'8px 14px', borderRadius:6, border:`1px solid ${C.purple}`, background:layoutBusy ? C.surface : C.purpleFaint, color:C.purple, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:layoutBusy ? 'wait' : 'pointer' }}>
+                {layoutBusy ? '⏳ Publishing…' : '📤 Publish Layout'}
+              </button>
+              {layoutMsg && <div style={{ fontSize:11, marginTop:6, color:layoutMsg.startsWith('✓') ? C.green : (layoutMsg.startsWith('✕') || layoutMsg.startsWith('⚠')) ? C.red : C.textSub }}>{layoutMsg}</div>}
+              <div style={{ fontSize:10, color:C.textDim, lineHeight:1.5, marginTop:8 }}>
+                Changes preview live for you immediately; <span style={{ color:C.purple }}>Publish Layout</span> writes them to <code>config.json</code> for everyone. Order re-indexes automatically. Unchecking <span style={{ color:C.textSub }}>User</span> hides a section from non-owner viewers; <span style={{ color:C.textSub }}>Owner</span> hides it from you.
+              </div>
+            </div>
+            )}
           </div>
         )}
 
@@ -1016,8 +1180,8 @@ function CaseDashboard() {
           <button onClick={expandAll} style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>⊞ Expand All</button>
           <button onClick={collapseAll} style={{ fontFamily: C.mono, fontSize: 10, color: C.textDim, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>⊟ Collapse All</button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 24, alignItems: "start" }}>
-          <div>
+        <LayoutContext.Provider value={{ layout, viewer: ownerMode ? 'owner' : 'user', isMobile }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 20, marginBottom: 24, alignItems: "flex-start" }}>
             
             <Section title="PA DOC Inmate Profile" sectionKey="profile" defaultOpen={true}
              icon="🪪" accent={C.blue} C={C}>
@@ -1062,13 +1226,8 @@ function CaseDashboard() {
                         </div>
                       </div>
                     </Section>
-          </div>
-          <div>
-            
             {/* ══ DOC STATUS CHECKER ══════════════════════════════════════════ */}
-                    <StatusCheckerWidget />
-          </div>
-        </div>
+            <LayoutBlock cfgKey="status"><StatusCheckerWidget /></LayoutBlock>
 
 
 
@@ -1541,6 +1700,8 @@ function CaseDashboard() {
             <strong style={{ color: C.text }}>📋 Pulling docket sheet/court summary:</strong> Click any docket link — opens UJS Portal and copies the docket # to clipboard simultaneously. Set Search By = <em>Docket Number</em>, paste, hit Search, then click 📄 or 🏛️ for the PDF.
           </div>
         </Section>
+        </div>
+        </LayoutContext.Provider>
 
         {/* Footer */}
         <div style={{ textAlign: 'center', padding: '20px 0 0', borderTop: `1px solid ${C.border}`, fontFamily: C.mono, fontSize: 10, color: C.textDim, lineHeight: 1.8 }}>
