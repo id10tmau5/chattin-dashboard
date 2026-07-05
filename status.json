@@ -1,16 +1,16 @@
 {
-  "status": "Inmate",
-  "currentLocation": "SCI Cambridge Springs",
+  "status": "Unknown",
+  "currentLocation": null,
   "permanentLocation": null,
   "inmateNumber": "PE1239",
   "paroleNumber": "345JW",
   "lastDOCUpdate": null,
   "age": null,
-  "notes": "Inmate locator lists active incarceration at SCI Cambridge Springs.",
+  "notes": "No active record found by inmate number or name in the DOC locator. Not confirmation of discharge \u2014 verify via VINELink or by calling PA SAVIN.",
   "sourcesChecked": [
     "inmatelocator.cor.pa.gov (Playwright headless scrape)"
   ],
-  "confidence": "High",
-  "lastChecked": "2026-07-05T04:17:45Z",
-  "checkedBy": "GitHub Actions (manual scrape)"
+  "confidence": "Low",
+  "lastChecked": "2026-07-05T09:36:37Z",
+  "checkedBy": "GitHub Actions (automatic daily scrape)"
 }
