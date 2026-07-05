@@ -322,6 +322,12 @@ function CaseDashboard() {
   });
   const [layoutMsg,     setLayoutMsg]     = useState(null);
   const [layoutBusy,    setLayoutBusy]    = useState(false);
+  const [overrideEnabled, setOverrideEnabled] = useState(() => {
+    try { return localStorage.getItem('chattin_override_enabled') === 'true'; } catch { return false; }
+  });
+  const [layoutEnabled, setLayoutEnabled] = useState(() => {
+    try { return localStorage.getItem('chattin_layout_enabled') === 'true'; } catch { return false; }
+  });
   const [checkCooldown, setCheckCooldown] = useState(0);    // seconds remaining before Check for Updates re-enables
   const [buildStatus,   setBuildStatus]   = useState('idle'); // idle|loading|ok|err
   const [buildMsg2,     setBuildMsg2]     = useState(null);
@@ -482,7 +488,7 @@ function CaseDashboard() {
   };
 
   // Owner manual override → writes the chosen status straight to status.json.
-  const handleManualOverride = () => { if (!debugEnabled) return; return dispatchStatusWorkflow(
+  const handleManualOverride = () => { if (!overrideEnabled) return; return dispatchStatusWorkflow(
     { mode: 'manual', manual_status: ovrStatus, manual_location: ovrLocation, manual_notes: ovrNotes, manual_lock: ovrLock ? 'true' : 'false' },
     { okMsg: '✓ Override submitted — tap Check for Updates in ~30 seconds.', cooldown: 30, setMsg: setOvrMsg, setBusy: setOvrBusy }
   ); };
@@ -502,6 +508,54 @@ function CaseDashboard() {
       if (!next) setDbgMsg(null);
       return next;
     });
+  };
+  // Enable/disable the manual status-override tools (persisted, off by default).
+  const toggleOverrideEnabled = () => {
+    setOverrideEnabled(prev => {
+      const next = !prev;
+      try { localStorage.setItem('chattin_override_enabled', next ? 'true' : 'false'); } catch (e) {}
+      if (!next) setOvrMsg(null);
+      return next;
+    });
+  };
+  // Enable/disable section-layout editing (persisted, off by default).
+  const toggleLayoutEnabled = () => {
+    setLayoutEnabled(prev => {
+      const next = !prev;
+      try { localStorage.setItem('chattin_layout_enabled', next ? 'true' : 'false'); } catch (e) {}
+      if (!next) setLayoutMsg(null);
+      return next;
+    });
+  };
+  // Clear a manual override immediately via the Contents API (no workflow wait):
+  // overwrite status.json unlocked + reset so the wrong value is never left showing.
+  const handleClearOverride = async () => {
+    if (!overrideEnabled) return;
+    const token = getGhToken();
+    if (!token) { setOvrMsg('⚠ Enter your access token above first.'); setTimeout(() => setOvrMsg(null), 5000); return; }
+    setOvrBusy(true); setOvrMsg('Clearing override…');
+    const api = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/status.json`;
+    const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+    const cleared = { status: 'Unknown', currentLocation: null, permanentLocation: null, inmateNumber: 'PE1239', paroleNumber: '345JW', lastDOCUpdate: null, age: null, notes: 'Override cleared by owner — run a status check for the live value.', sourcesChecked: [], confidence: 'Low', lastChecked: new Date().toISOString(), checkedBy: 'Override cleared (owner)', locked: false };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(cleared, null, 2) + '\n')));
+    try {
+      const getRes = await fetch(api, { headers });
+      const cur = getRes.ok ? await getRes.json() : null;
+      const body = { message: 'chore: clear manual override via dashboard', content };
+      if (cur && cur.sha) body.sha = cur.sha;
+      const putRes = await fetch(api, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (putRes.ok) setOvrMsg('✓ Override cleared. Tap Check for Updates, or Run Status Check for the live value.');
+      else { const e = await putRes.json().catch(() => ({})); setOvrMsg('✕ ' + (e.message || putRes.status)); }
+    } catch (e) { setOvrMsg('✕ ' + (e.message || 'request failed')); }
+    setOvrBusy(false);
+  };
+  // Restore the section layout to defaults and expand every section (fresh start).
+  const restoreLayoutDefaults = () => {
+    if (!layoutEnabled) return;
+    setLayout(DEFAULT_LAYOUT);
+    setStatusCheckerOpen(true);
+    try { window.dispatchEvent(new CustomEvent('chattin-sec-all', { detail: 'expand' })); } catch (e) {}
+    setLayoutMsg('↺ Defaults restored (preview) — Publish Layout to save for everyone.');
   };
 
   // ── Section-layout owner controls ──────────────────────────────────────────
@@ -531,7 +585,7 @@ function CaseDashboard() {
   // Publish the current layout to config.json via the GitHub Contents API
   // (instant — GET the file's SHA, then PUT the new content). Gated by debug tools.
   const publishLayout = async () => {
-    if (!debugEnabled) return;
+    if (!layoutEnabled) return;
     const token = getGhToken();
     if (!token) { setLayoutMsg('⚠ Enter your access token above first.'); setTimeout(() => setLayoutMsg(null), 5000); return; }
     setLayoutBusy(true); setLayoutMsg('Publishing…');
@@ -673,24 +727,36 @@ function CaseDashboard() {
               <div style={{ fontSize:11, color:C.textSub, marginBottom:5 }}>
                 <span style={{ color:C.orange }}>🛠 Manual Status Override</span> <span style={{ color:C.textDim, fontSize:10 }}>— fallback when the automated scrape can't read the portal</span>
               </div>
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:overrideEnabled ? C.orange : C.textSub, marginBottom:10, cursor:'pointer', userSelect:'none' }}>
+                <span onClick={toggleOverrideEnabled} style={{ position:'relative', display:'inline-block', width:38, height:20, flexShrink:0, borderRadius:20, background:overrideEnabled ? C.orange : C.border, transition:'background 0.2s' }}>
+                  <span style={{ position:'absolute', top:2, left:overrideEnabled ? 20 : 2, width:16, height:16, borderRadius:'50%', background:'#fff', transition:'left 0.2s' }} />
+                </span>
+                <span onClick={toggleOverrideEnabled}>{overrideEnabled ? 'Status override ENABLED' : 'Enable status override'}</span>
+              </label>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
-                <select value={ovrStatus} onChange={e => setOvrStatus(e.target.value)} disabled={!debugEnabled}
-                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, opacity:debugEnabled ? 1 : 0.5, cursor:debugEnabled ? 'pointer' : 'not-allowed' }}>
+                <select value={ovrStatus} onChange={e => setOvrStatus(e.target.value)} disabled={!overrideEnabled}
+                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, opacity:overrideEnabled ? 1 : 0.5, cursor:overrideEnabled ? 'pointer' : 'not-allowed' }}>
                   {['Inmate','Parolee','Discharged','Unknown'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <input type="text" placeholder="Location (optional)" value={ovrLocation} onChange={e => setOvrLocation(e.target.value)} disabled={!debugEnabled}
-                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, opacity:debugEnabled ? 1 : 0.5 }} />
+                <input type="text" placeholder="Location (optional)" value={ovrLocation} onChange={e => setOvrLocation(e.target.value)} disabled={!overrideEnabled}
+                  style={{ padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, opacity:overrideEnabled ? 1 : 0.5 }} />
               </div>
-              <input type="text" placeholder="Note (optional)" value={ovrNotes} onChange={e => setOvrNotes(e.target.value)} disabled={!debugEnabled}
-                style={{ opacity:debugEnabled ? 1 : 0.5, width:'100%', boxSizing:'border-box', padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, marginBottom:8 }} />
-              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:debugEnabled ? C.textSub : C.textDim, opacity:debugEnabled ? 1 : 0.5, marginBottom:8, cursor:debugEnabled ? 'pointer' : 'not-allowed' }}>
-                <input type="checkbox" checked={ovrLock} disabled={!debugEnabled} onChange={e => toggleOvrLock(e.target.checked)} style={{ cursor:debugEnabled ? 'pointer' : 'not-allowed' }} />
-                🔒 Lock — keep this value until I change it (daily scrapes won't override it){!debugEnabled && ' · enable debug tools to change'}
+              <input type="text" placeholder="Note (optional)" value={ovrNotes} onChange={e => setOvrNotes(e.target.value)} disabled={!overrideEnabled}
+                style={{ opacity:overrideEnabled ? 1 : 0.5, width:'100%', boxSizing:'border-box', padding:'7px 10px', borderRadius:6, border:`1px solid ${C.border}`, background:C.card, color:C.text, fontFamily:C.mono, fontSize:11, marginBottom:8 }} />
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:overrideEnabled ? C.textSub : C.textDim, opacity:overrideEnabled ? 1 : 0.5, marginBottom:8, cursor:overrideEnabled ? 'pointer' : 'not-allowed' }}>
+                <input type="checkbox" checked={ovrLock} disabled={!overrideEnabled} onChange={e => toggleOvrLock(e.target.checked)} style={{ cursor:overrideEnabled ? 'pointer' : 'not-allowed' }} />
+                🔒 Lock — keep this value until I change it (daily scrapes won't override it){!overrideEnabled && ' · enable status override to change'}
               </label>
-              <button onClick={handleManualOverride} disabled={ovrBusy || !debugEnabled}
-                style={{ width:'100%', padding:'8px 14px', borderRadius:6, border:`1px solid ${C.orange}`, background:ovrBusy ? C.surface : C.orangeFaint, color:C.orange, fontFamily:C.mono, fontSize:11, fontWeight:700, opacity:debugEnabled ? 1 : 0.4, cursor:(ovrBusy || !debugEnabled) ? 'not-allowed' : 'pointer' }}>
-                {ovrBusy ? '⏳ Submitting…' : debugEnabled ? '🛠 Apply Override' : '🛠 Apply Override · enable debug tools'}
+              <div style={{ display:'flex', gap:8 }}>
+              <button onClick={handleManualOverride} disabled={ovrBusy || !overrideEnabled}
+                style={{ flex:1, padding:'8px 14px', borderRadius:6, border:`1px solid ${C.orange}`, background:ovrBusy ? C.surface : C.orangeFaint, color:C.orange, fontFamily:C.mono, fontSize:11, fontWeight:700, opacity:overrideEnabled ? 1 : 0.4, cursor:(ovrBusy || !overrideEnabled) ? 'not-allowed' : 'pointer' }}>
+                {ovrBusy ? '⏳ Submitting…' : '🛠 Apply Override'}
               </button>
+              <button onClick={handleClearOverride} disabled={ovrBusy || !overrideEnabled}
+                style={{ flex:1, padding:'8px 14px', borderRadius:6, border:`1px solid ${C.textDim}`, background:C.surface, color:C.textSub, fontFamily:C.mono, fontSize:11, fontWeight:700, opacity:overrideEnabled ? 1 : 0.4, cursor:(ovrBusy || !overrideEnabled) ? 'not-allowed' : 'pointer' }}>
+                🧯 Clear Override
+              </button>
+              </div>
               {ovrMsg && <div style={{ fontSize:11, marginTop:6, color:ovrMsg.startsWith('✓') ? C.green : C.red }}>{ovrMsg}</div>}
               <div style={{ fontSize:10, color:C.textDim, lineHeight:1.5, marginTop:8 }}>
                 Writes the status directly via the same GitHub Action. A confident manual value won't be overwritten by an inconclusive automated scrape.
@@ -722,11 +788,17 @@ function CaseDashboard() {
                 <span style={{ color:C.blue }}>Scrape + Debug</span> runs a lookup and commits <code>debug/</code> (rendered page text + screenshot) so the result can be reviewed. <span style={{ color:C.red }}>Clear Debug</span> removes that folder once you're done. Normal runs never commit debug output.
               </div>
             </div>
-            {debugEnabled && (
             <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${C.border}` }}>
               <div style={{ fontSize:11, fontWeight:700, marginBottom:10 }}>
                 <span style={{ color:C.purple }}>🎛 Section Layout</span> <span style={{ color:C.textDim, fontSize:10 }}>— reorder / show / hide sections per viewer</span>
               </div>
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:layoutEnabled ? C.purple : C.textSub, marginBottom:10, cursor:'pointer', userSelect:'none' }}>
+                <span onClick={toggleLayoutEnabled} style={{ position:'relative', display:'inline-block', width:38, height:20, flexShrink:0, borderRadius:20, background:layoutEnabled ? C.purple : C.border, transition:'background 0.2s' }}>
+                  <span style={{ position:'absolute', top:2, left:layoutEnabled ? 20 : 2, width:16, height:16, borderRadius:'50%', background:'#fff', transition:'left 0.2s' }} />
+                </span>
+                <span onClick={toggleLayoutEnabled}>{layoutEnabled ? 'Layout editing ENABLED' : 'Enable layout editing'}</span>
+              </label>
+              <div style={{ opacity: layoutEnabled ? 1 : 0.4, pointerEvents: layoutEnabled ? 'auto' : 'none' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, fontSize:11, color:C.textSub }}>
                 <span>Desktop columns:</span>
                 {[1,2].map(n => (
@@ -754,16 +826,22 @@ function CaseDashboard() {
                   </div>
                 );
               })}
+              <div style={{ display:'flex', gap:8, marginTop:10 }}>
               <button onClick={publishLayout} disabled={layoutBusy}
-                style={{ width:'100%', marginTop:10, padding:'8px 14px', borderRadius:6, border:`1px solid ${C.purple}`, background:layoutBusy ? C.surface : C.purpleFaint, color:C.purple, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:layoutBusy ? 'wait' : 'pointer' }}>
+                style={{ flex:1, padding:'8px 14px', borderRadius:6, border:`1px solid ${C.purple}`, background:layoutBusy ? C.surface : C.purpleFaint, color:C.purple, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:layoutBusy ? 'wait' : 'pointer' }}>
                 {layoutBusy ? '⏳ Publishing…' : '📤 Publish Layout'}
               </button>
+              <button onClick={restoreLayoutDefaults} disabled={layoutBusy}
+                style={{ flex:1, padding:'8px 14px', borderRadius:6, border:`1px solid ${C.textDim}`, background:C.surface, color:C.textSub, fontFamily:C.mono, fontSize:11, fontWeight:700, cursor:layoutBusy ? 'wait' : 'pointer' }}>
+                ↺ Restore Defaults
+              </button>
+              </div>
+              </div>
               {layoutMsg && <div style={{ fontSize:11, marginTop:6, color:layoutMsg.startsWith('✓') ? C.green : (layoutMsg.startsWith('✕') || layoutMsg.startsWith('⚠')) ? C.red : C.textSub }}>{layoutMsg}</div>}
               <div style={{ fontSize:10, color:C.textDim, lineHeight:1.5, marginTop:8 }}>
-                Changes preview live for you immediately; <span style={{ color:C.purple }}>Publish Layout</span> writes them to <code>config.json</code> for everyone. Order re-indexes automatically. Unchecking <span style={{ color:C.textSub }}>User</span> hides a section from non-owner viewers; <span style={{ color:C.textSub }}>Owner</span> hides it from you.
+                Changes preview live for you immediately; <span style={{ color:C.purple }}>Publish Layout</span> writes them to <code>config.json</code> for everyone. Order re-indexes automatically. Unchecking <span style={{ color:C.textSub }}>User</span> hides a section from non-owner viewers; <span style={{ color:C.textSub }}>Owner</span> hides it from you. <span style={{ color:C.textSub }}>Restore Defaults</span> resets order/visibility and expands every section.
               </div>
             </div>
-            )}
           </div>
         )}
 
@@ -1013,7 +1091,7 @@ function CaseDashboard() {
 
   const inFavor = [
     { w: 'NOTABLE',  c: C.green, label: 'Minimum Date Reached + Parole #345JW Active', detail: 'The 60-month minimum was reached June 8, 2026. Parole Number 345JW has been assigned and a new mugshot was captured just 7 days prior on June 1, 2026 — strong indicators that she is actively in parole processing and a Board review is imminent or has already occurred.' },
-    { w: 'NOTABLE',  c: C.green, label: 'Consistent DOC Payment Compliance (4+ Years)', detail: 'Monthly ACT 84 inmate wage deductions from August 2021 through May 2026 — over 4 continuous years — suggest sustained institutional employment and consistent conduct, both favorable signals for a Board hearing.' },
+    { w: 'NOTABLE',  c: C.green, label: 'Consistent DOC Payment Compliance (4+ Years)', detail: `Monthly ACT 84 inmate wage deductions from August 2021 to the present — over ${Math.floor((TODAY - new Date(2021, 7, 1)) / 31557600000)} continuous years — suggest sustained institutional employment and consistent conduct, both favorable signals for a Board hearing.` },
     { w: 'MODERATE', c: C.gold,  label: 'Demonstrated Drug Treatment Self-Awareness', detail: 'Petitioning for the State Drug Treatment Program in 2023, even if denied, shows self-identification of addiction as the core driver — favorable framing for a parole interview if properly presented with evidence of in-prison programming.' },
     { w: 'MODERATE', c: C.gold,  label: 'Statistical Profile (Age/Gender)', detail: 'At 35, female offenders statistically carry lower recidivism rates than male counterparts. Risk declines measurably after the late 20s; she is now in a lower-risk demographic bracket and aging into an even lower-risk profile.' },
     { w: 'LOW',      c: C.blue,  label: 'SCI Cambridge Springs Program Access', detail: "Cambridge Springs is a women's state facility offering substance abuse, educational, and vocational programming. Documented participation in any of these would be the single most impactful factor she could present at a hearing — not confirmed in the public record." },

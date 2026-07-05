@@ -75,7 +75,7 @@ An owner **lock** or **manual override** always takes precedence over the automa
 | `scripts/scrape_status.py` | Playwright headless scraper. Multi-pass: inmate lookup → parole lookup → discharge/unknown. Writes `status.json`. Respects the owner lock. |
 | `status.json` | Latest DOC custody status. Written by `check-status.yml`. Read by the “Check for Updates” button. |
 | `debug/` | Scrape debug output (`page.txt`, `screenshot.png`, `form_recon_*.txt`, `switch_result.txt`). Git-ignored; committed only in `scrape-debug` mode, and also uploaded as a 7-day workflow artifact. |
-| `config.json` | Section-layout schema (per-section order + user/owner visibility + `desktopColumns`). Groundwork for the owner-editable layout system — not yet consumed by the UI. |
+| `config.json` | Live section-layout config (per-section order + user/owner visibility + `desktopColumns`). Fetched on load; edited via the owner **🎛 Section Layout** panel and published back through the GitHub Contents API. |
 
 ### Workflows
 | File | Trigger | Description |
@@ -115,7 +115,11 @@ By default the dashboard shows only the status display and a single button. Deve
 | Toggle on mobile | 5 rapid taps on the footer’s “SOURCE:” line |
 | State persists | Stored in `localStorage` — stays unlocked across visits on that browser |
 
-Owner mode reveals: **Run Status Check** button, **↻ compile** button, and the **⚙ Setup** panel (access token, manual override + lock, and debug / maintenance tools behind an **Enable debug tools** toggle).
+Owner mode reveals: **Run Status Check** button, **↻ compile** button, and the **⚙ Setup** panel. The Setup panel groups the owner tools behind three independent, persisted, off-by-default toggles (each area stays visible but greyed until enabled):
+
+- **Enable status override** — Manual Status Override fields, **🔒 Lock**, **🛠 Apply Override**, and **🧯 Clear Override** (instantly resets `status.json` via the Contents API, no workflow wait).
+- **Enable debug tools** — **🐞 Scrape + Debug** and **🧹 Clear Debug**.
+- **Enable layout editing** — the **🎛 Section Layout** panel: per-section order dropdowns (auto-reindexing), User/Owner visibility checkboxes, desktop-column count, **📤 Publish Layout**, and **↺ Restore Defaults**.
 
 ---
 

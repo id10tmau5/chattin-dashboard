@@ -630,6 +630,20 @@ function CaseDashboard() {
   });
   const [layoutMsg, setLayoutMsg] = useState(null);
   const [layoutBusy, setLayoutBusy] = useState(false);
+  const [overrideEnabled, setOverrideEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('chattin_override_enabled') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [layoutEnabled, setLayoutEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('chattin_layout_enabled') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [checkCooldown, setCheckCooldown] = useState(0); // seconds remaining before Check for Updates re-enables
   const [buildStatus, setBuildStatus] = useState('idle'); // idle|loading|ok|err
   const [buildMsg2, setBuildMsg2] = useState(null);
@@ -888,7 +902,7 @@ function CaseDashboard() {
 
   // Owner manual override → writes the chosen status straight to status.json.
   const handleManualOverride = () => {
-    if (!debugEnabled) return;
+    if (!overrideEnabled) return;
     return dispatchStatusWorkflow({
       mode: 'manual',
       manual_status: ovrStatus,
@@ -922,6 +936,101 @@ function CaseDashboard() {
       if (!next) setDbgMsg(null);
       return next;
     });
+  };
+  // Enable/disable the manual status-override tools (persisted, off by default).
+  const toggleOverrideEnabled = () => {
+    setOverrideEnabled(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('chattin_override_enabled', next ? 'true' : 'false');
+      } catch (e) {}
+      if (!next) setOvrMsg(null);
+      return next;
+    });
+  };
+  // Enable/disable section-layout editing (persisted, off by default).
+  const toggleLayoutEnabled = () => {
+    setLayoutEnabled(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('chattin_layout_enabled', next ? 'true' : 'false');
+      } catch (e) {}
+      if (!next) setLayoutMsg(null);
+      return next;
+    });
+  };
+  // Clear a manual override immediately via the Contents API (no workflow wait):
+  // overwrite status.json unlocked + reset so the wrong value is never left showing.
+  const handleClearOverride = async () => {
+    if (!overrideEnabled) return;
+    const token = getGhToken();
+    if (!token) {
+      setOvrMsg('⚠ Enter your access token above first.');
+      setTimeout(() => setOvrMsg(null), 5000);
+      return;
+    }
+    setOvrBusy(true);
+    setOvrMsg('Clearing override…');
+    const api = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/status.json`;
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+    const cleared = {
+      status: 'Unknown',
+      currentLocation: null,
+      permanentLocation: null,
+      inmateNumber: 'PE1239',
+      paroleNumber: '345JW',
+      lastDOCUpdate: null,
+      age: null,
+      notes: 'Override cleared by owner — run a status check for the live value.',
+      sourcesChecked: [],
+      confidence: 'Low',
+      lastChecked: new Date().toISOString(),
+      checkedBy: 'Override cleared (owner)',
+      locked: false
+    };
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(cleared, null, 2) + '\n')));
+    try {
+      const getRes = await fetch(api, {
+        headers
+      });
+      const cur = getRes.ok ? await getRes.json() : null;
+      const body = {
+        message: 'chore: clear manual override via dashboard',
+        content
+      };
+      if (cur && cur.sha) body.sha = cur.sha;
+      const putRes = await fetch(api, {
+        method: 'PUT',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (putRes.ok) setOvrMsg('✓ Override cleared. Tap Check for Updates, or Run Status Check for the live value.');else {
+        const e = await putRes.json().catch(() => ({}));
+        setOvrMsg('✕ ' + (e.message || putRes.status));
+      }
+    } catch (e) {
+      setOvrMsg('✕ ' + (e.message || 'request failed'));
+    }
+    setOvrBusy(false);
+  };
+  // Restore the section layout to defaults and expand every section (fresh start).
+  const restoreLayoutDefaults = () => {
+    if (!layoutEnabled) return;
+    setLayout(DEFAULT_LAYOUT);
+    setStatusCheckerOpen(true);
+    try {
+      window.dispatchEvent(new CustomEvent('chattin-sec-all', {
+        detail: 'expand'
+      }));
+    } catch (e) {}
+    setLayoutMsg('↺ Defaults restored (preview) — Publish Layout to save for everyone.');
   };
 
   // ── Section-layout owner controls ──────────────────────────────────────────
@@ -974,7 +1083,7 @@ function CaseDashboard() {
   // Publish the current layout to config.json via the GitHub Contents API
   // (instant — GET the file's SHA, then PUT the new content). Gated by debug tools.
   const publishLayout = async () => {
-    if (!debugEnabled) return;
+    if (!layoutEnabled) return;
     const token = getGhToken();
     if (!token) {
       setLayoutMsg('⚠ Enter your access token above first.');
@@ -1321,7 +1430,43 @@ function CaseDashboard() {
         color: C.textDim,
         fontSize: 10
       }
-    }, "— fallback when the automated scrape can't read the portal")), /*#__PURE__*/React.createElement("div", {
+    }, "— fallback when the automated scrape can't read the portal")), /*#__PURE__*/React.createElement("label", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 11,
+        color: overrideEnabled ? C.orange : C.textSub,
+        marginBottom: 10,
+        cursor: 'pointer',
+        userSelect: 'none'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      onClick: toggleOverrideEnabled,
+      style: {
+        position: 'relative',
+        display: 'inline-block',
+        width: 38,
+        height: 20,
+        flexShrink: 0,
+        borderRadius: 20,
+        background: overrideEnabled ? C.orange : C.border,
+        transition: 'background 0.2s'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        position: 'absolute',
+        top: 2,
+        left: overrideEnabled ? 20 : 2,
+        width: 16,
+        height: 16,
+        borderRadius: '50%',
+        background: '#fff',
+        transition: 'left 0.2s'
+      }
+    })), /*#__PURE__*/React.createElement("span", {
+      onClick: toggleOverrideEnabled
+    }, overrideEnabled ? 'Status override ENABLED' : 'Enable status override')), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
@@ -1331,7 +1476,7 @@ function CaseDashboard() {
     }, /*#__PURE__*/React.createElement("select", {
       value: ovrStatus,
       onChange: e => setOvrStatus(e.target.value),
-      disabled: !debugEnabled,
+      disabled: !overrideEnabled,
       style: {
         padding: '7px 10px',
         borderRadius: 6,
@@ -1340,8 +1485,8 @@ function CaseDashboard() {
         color: C.text,
         fontFamily: C.mono,
         fontSize: 11,
-        opacity: debugEnabled ? 1 : 0.5,
-        cursor: debugEnabled ? 'pointer' : 'not-allowed'
+        opacity: overrideEnabled ? 1 : 0.5,
+        cursor: overrideEnabled ? 'pointer' : 'not-allowed'
       }
     }, ['Inmate', 'Parolee', 'Discharged', 'Unknown'].map(s => /*#__PURE__*/React.createElement("option", {
       key: s,
@@ -1351,7 +1496,7 @@ function CaseDashboard() {
       placeholder: "Location (optional)",
       value: ovrLocation,
       onChange: e => setOvrLocation(e.target.value),
-      disabled: !debugEnabled,
+      disabled: !overrideEnabled,
       style: {
         padding: '7px 10px',
         borderRadius: 6,
@@ -1360,16 +1505,16 @@ function CaseDashboard() {
         color: C.text,
         fontFamily: C.mono,
         fontSize: 11,
-        opacity: debugEnabled ? 1 : 0.5
+        opacity: overrideEnabled ? 1 : 0.5
       }
     })), /*#__PURE__*/React.createElement("input", {
       type: "text",
       placeholder: "Note (optional)",
       value: ovrNotes,
       onChange: e => setOvrNotes(e.target.value),
-      disabled: !debugEnabled,
+      disabled: !overrideEnabled,
       style: {
-        opacity: debugEnabled ? 1 : 0.5,
+        opacity: overrideEnabled ? 1 : 0.5,
         width: '100%',
         boxSizing: 'border-box',
         padding: '7px 10px',
@@ -1387,24 +1532,29 @@ function CaseDashboard() {
         alignItems: 'center',
         gap: 8,
         fontSize: 11,
-        color: debugEnabled ? C.textSub : C.textDim,
-        opacity: debugEnabled ? 1 : 0.5,
+        color: overrideEnabled ? C.textSub : C.textDim,
+        opacity: overrideEnabled ? 1 : 0.5,
         marginBottom: 8,
-        cursor: debugEnabled ? 'pointer' : 'not-allowed'
+        cursor: overrideEnabled ? 'pointer' : 'not-allowed'
       }
     }, /*#__PURE__*/React.createElement("input", {
       type: "checkbox",
       checked: ovrLock,
-      disabled: !debugEnabled,
+      disabled: !overrideEnabled,
       onChange: e => toggleOvrLock(e.target.checked),
       style: {
-        cursor: debugEnabled ? 'pointer' : 'not-allowed'
+        cursor: overrideEnabled ? 'pointer' : 'not-allowed'
       }
-    }), "🔒 Lock — keep this value until I change it (daily scrapes won't override it)", !debugEnabled && ' · enable debug tools to change'), /*#__PURE__*/React.createElement("button", {
-      onClick: handleManualOverride,
-      disabled: ovrBusy || !debugEnabled,
+    }), "🔒 Lock — keep this value until I change it (daily scrapes won't override it)", !overrideEnabled && ' · enable status override to change'), /*#__PURE__*/React.createElement("div", {
       style: {
-        width: '100%',
+        display: 'flex',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: handleManualOverride,
+      disabled: ovrBusy || !overrideEnabled,
+      style: {
+        flex: 1,
         padding: '8px 14px',
         borderRadius: 6,
         border: `1px solid ${C.orange}`,
@@ -1413,10 +1563,26 @@ function CaseDashboard() {
         fontFamily: C.mono,
         fontSize: 11,
         fontWeight: 700,
-        opacity: debugEnabled ? 1 : 0.4,
-        cursor: ovrBusy || !debugEnabled ? 'not-allowed' : 'pointer'
+        opacity: overrideEnabled ? 1 : 0.4,
+        cursor: ovrBusy || !overrideEnabled ? 'not-allowed' : 'pointer'
       }
-    }, ovrBusy ? '⏳ Submitting…' : debugEnabled ? '🛠 Apply Override' : '🛠 Apply Override · enable debug tools'), ovrMsg && /*#__PURE__*/React.createElement("div", {
+    }, ovrBusy ? '⏳ Submitting…' : '🛠 Apply Override'), /*#__PURE__*/React.createElement("button", {
+      onClick: handleClearOverride,
+      disabled: ovrBusy || !overrideEnabled,
+      style: {
+        flex: 1,
+        padding: '8px 14px',
+        borderRadius: 6,
+        border: `1px solid ${C.textDim}`,
+        background: C.surface,
+        color: C.textSub,
+        fontFamily: C.mono,
+        fontSize: 11,
+        fontWeight: 700,
+        opacity: overrideEnabled ? 1 : 0.4,
+        cursor: ovrBusy || !overrideEnabled ? 'not-allowed' : 'pointer'
+      }
+    }, "🧯 Clear Override")), ovrMsg && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 11,
         marginTop: 6,
@@ -1546,7 +1712,7 @@ function CaseDashboard() {
       style: {
         color: C.red
       }
-    }, "Clear Debug"), " removes that folder once you're done. Normal runs never commit debug output.")), debugEnabled && /*#__PURE__*/React.createElement("div", {
+    }, "Clear Debug"), " removes that folder once you're done. Normal runs never commit debug output.")), /*#__PURE__*/React.createElement("div", {
       style: {
         marginTop: 14,
         paddingTop: 14,
@@ -1567,7 +1733,48 @@ function CaseDashboard() {
         color: C.textDim,
         fontSize: 10
       }
-    }, "— reorder / show / hide sections per viewer")), /*#__PURE__*/React.createElement("div", {
+    }, "— reorder / show / hide sections per viewer")), /*#__PURE__*/React.createElement("label", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 11,
+        color: layoutEnabled ? C.purple : C.textSub,
+        marginBottom: 10,
+        cursor: 'pointer',
+        userSelect: 'none'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      onClick: toggleLayoutEnabled,
+      style: {
+        position: 'relative',
+        display: 'inline-block',
+        width: 38,
+        height: 20,
+        flexShrink: 0,
+        borderRadius: 20,
+        background: layoutEnabled ? C.purple : C.border,
+        transition: 'background 0.2s'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        position: 'absolute',
+        top: 2,
+        left: layoutEnabled ? 20 : 2,
+        width: 16,
+        height: 16,
+        borderRadius: '50%',
+        background: '#fff',
+        transition: 'left 0.2s'
+      }
+    })), /*#__PURE__*/React.createElement("span", {
+      onClick: toggleLayoutEnabled
+    }, layoutEnabled ? 'Layout editing ENABLED' : 'Enable layout editing')), /*#__PURE__*/React.createElement("div", {
+      style: {
+        opacity: layoutEnabled ? 1 : 0.4,
+        pointerEvents: layoutEnabled ? 'auto' : 'none'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         alignItems: 'center',
@@ -1664,12 +1871,17 @@ function CaseDashboard() {
           cursor: 'pointer'
         }
       }));
-    }), /*#__PURE__*/React.createElement("button", {
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        marginTop: 10
+      }
+    }, /*#__PURE__*/React.createElement("button", {
       onClick: publishLayout,
       disabled: layoutBusy,
       style: {
-        width: '100%',
-        marginTop: 10,
+        flex: 1,
         padding: '8px 14px',
         borderRadius: 6,
         border: `1px solid ${C.purple}`,
@@ -1680,7 +1892,22 @@ function CaseDashboard() {
         fontWeight: 700,
         cursor: layoutBusy ? 'wait' : 'pointer'
       }
-    }, layoutBusy ? '⏳ Publishing…' : '📤 Publish Layout'), layoutMsg && /*#__PURE__*/React.createElement("div", {
+    }, layoutBusy ? '⏳ Publishing…' : '📤 Publish Layout'), /*#__PURE__*/React.createElement("button", {
+      onClick: restoreLayoutDefaults,
+      disabled: layoutBusy,
+      style: {
+        flex: 1,
+        padding: '8px 14px',
+        borderRadius: 6,
+        border: `1px solid ${C.textDim}`,
+        background: C.surface,
+        color: C.textSub,
+        fontFamily: C.mono,
+        fontSize: 11,
+        fontWeight: 700,
+        cursor: layoutBusy ? 'wait' : 'pointer'
+      }
+    }, "↺ Restore Defaults"))), layoutMsg && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 11,
         marginTop: 6,
@@ -1705,7 +1932,11 @@ function CaseDashboard() {
       style: {
         color: C.textSub
       }
-    }, "Owner"), " hides it from you."))), statusCheckerOpen && /*#__PURE__*/React.createElement("div", {
+    }, "Owner"), " hides it from you. ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: C.textSub
+      }
+    }, "Restore Defaults"), " resets order/visibility and expands every section."))), statusCheckerOpen && /*#__PURE__*/React.createElement("div", {
       style: {
         background: C.card,
         border: `2px solid ${C.green}44`,
@@ -2403,7 +2634,7 @@ function CaseDashboard() {
     w: 'NOTABLE',
     c: C.green,
     label: 'Consistent DOC Payment Compliance (4+ Years)',
-    detail: 'Monthly ACT 84 inmate wage deductions from August 2021 through May 2026 — over 4 continuous years — suggest sustained institutional employment and consistent conduct, both favorable signals for a Board hearing.'
+    detail: `Monthly ACT 84 inmate wage deductions from August 2021 to the present — over ${Math.floor((TODAY - new Date(2021, 7, 1)) / 31557600000)} continuous years — suggest sustained institutional employment and consistent conduct, both favorable signals for a Board hearing.`
   }, {
     w: 'MODERATE',
     c: C.gold,

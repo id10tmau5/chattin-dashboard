@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 
 ---
 
+## [1.5.0] — 2026-07-05
+
+### Added
+- **Owner-editable section layout (live)** — The `config.json` groundwork from 1.4.0 is now fully wired. The dashboard fetches it on load and lays out all 15 blocks accordingly, and the **🎛 Section Layout** panel (Setup) lets the owner:
+  - Reorder any section via a per-row **order dropdown** that auto-reindexes the rest (always a clean 1–15, no duplicates or gaps).
+  - Show/hide each section **per viewer** with independent **User** and **Owner** checkboxes.
+  - Choose **desktop columns** (1 or 2; mobile is always 1).
+  - **📤 Publish Layout** — writes `config.json` via the GitHub Contents API (instant, no workflow), so the change is global for every visitor.
+  - **↺ Restore Defaults** — resets order/visibility/columns to the original and force-expands every section for a clean slate.
+  - Implemented with a React Context + flexbox `order`/width model, so blocks reorder without moving their source.
+- **Three independent owner toggles** — The single debug gate was split into three persisted, off-by-default switches so each feature area is controlled on its own: **Enable debug tools** (🐞 Scrape + Debug / 🧹 Clear Debug), **Enable status override** (the Manual Status Override fields, 🔒 Lock, 🛠 Apply Override), and **Enable layout editing** (the Section Layout panel). Each area stays visible but greyed until its toggle is on.
+- **🧯 Clear Override** — Instantly clears a manual override by writing an unlocked, reset `status.json` via the Contents API (no workflow wait), so a test value is never left showing. A follow-up **Run Status Check** repopulates the live value.
+
+### Fixed
+- **Static ACT 84 wording** — The parole-factor line about DOC payment compliance no longer says "through May 2026 — over 4 continuous years"; it now reads "to the present — over N continuous years" and computes N live from the current date.
+
+### Changed
+- **Manual Status Override** now lives behind its own toggle rather than the debug toggle, grouping it with Clear Override as a self-contained testing surface.
+
+---
+
 ## [1.4.0] — 2026-07-04
 
 ### Added
