@@ -2644,7 +2644,7 @@ function CaseDashboard() {
     w: 'MODERATE',
     c: C.gold,
     label: 'Statistical Profile (Age/Gender)',
-    detail: 'At 35, female offenders statistically carry lower recidivism rates than male counterparts. Risk declines measurably after the late 20s; she is now in a lower-risk demographic bracket and aging into an even lower-risk profile.'
+    detail: `At ${currentAge}, female offenders statistically carry lower recidivism rates than male counterparts. Risk declines measurably after the late 20s; she is now in a lower-risk demographic bracket and aging into an even lower-risk profile.`
   }, {
     w: 'LOW',
     c: C.blue,
@@ -3484,7 +3484,7 @@ function CaseDashboard() {
   }, /*#__PURE__*/React.createElement(StatCard, {
     label: "Days Since Offense",
     value: daysOffense.toLocaleString(),
-    sub: "Age 29 → 35",
+    sub: `Age 29 → ${currentAge}`,
     accent: C.red,
     icon: "🔴",
     C: C

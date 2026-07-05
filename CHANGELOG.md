@@ -19,6 +19,7 @@ All notable changes to this project are documented here.
 
 ### Fixed
 - **Static ACT 84 wording (two lines)** — Both hardcoded ACT 84 references are now live: the Parole Board factor line no longer says "through May 2026 — over 4 continuous years" (now "to the present — over N continuous years", N computed from the current date), and the Parole Release Projections line no longer says "confirm she remained incarcerated through last month" (now ties the current-custody claim to the live status check via `lastConfirmed`). The month-by-month ACT 84 payment ledger stays as-is, since those are actual recorded amounts.
+- **Current-age text made dynamic (sweep)** — A full pass for stale relative-time/age phrasing caught two more: the recidivism-risk factor now reads "At {currentAge}, female offenders…" instead of a hardcoded "At 35…", and the *Days Since Offense* sub-label now reads "Age 29 → {currentAge}" instead of "Age 29 → 35". Fixed sentence-span labels (min "age 30→35", max "age 30→42") were intentionally left static, since those describe the mandatory 5-/12-year terms, not her current age.
 
 ### Changed
 - **Manual Status Override** now lives behind its own toggle rather than the debug toggle, grouping it with Clear Override as a self-contained testing surface.

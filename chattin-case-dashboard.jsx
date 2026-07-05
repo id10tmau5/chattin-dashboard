@@ -1093,7 +1093,7 @@ function CaseDashboard() {
     { w: 'NOTABLE',  c: C.green, label: 'Minimum Date Reached + Parole #345JW Active', detail: 'The 60-month minimum was reached June 8, 2026. Parole Number 345JW has been assigned and a new mugshot was captured just 7 days prior on June 1, 2026 — strong indicators that she is actively in parole processing and a Board review is imminent or has already occurred.' },
     { w: 'NOTABLE',  c: C.green, label: 'Consistent DOC Payment Compliance (4+ Years)', detail: `Monthly ACT 84 inmate wage deductions from August 2021 to the present — over ${Math.floor((TODAY - new Date(2021, 7, 1)) / 31557600000)} continuous years — suggest sustained institutional employment and consistent conduct, both favorable signals for a Board hearing.` },
     { w: 'MODERATE', c: C.gold,  label: 'Demonstrated Drug Treatment Self-Awareness', detail: 'Petitioning for the State Drug Treatment Program in 2023, even if denied, shows self-identification of addiction as the core driver — favorable framing for a parole interview if properly presented with evidence of in-prison programming.' },
-    { w: 'MODERATE', c: C.gold,  label: 'Statistical Profile (Age/Gender)', detail: 'At 35, female offenders statistically carry lower recidivism rates than male counterparts. Risk declines measurably after the late 20s; she is now in a lower-risk demographic bracket and aging into an even lower-risk profile.' },
+    { w: 'MODERATE', c: C.gold,  label: 'Statistical Profile (Age/Gender)', detail: `At ${currentAge}, female offenders statistically carry lower recidivism rates than male counterparts. Risk declines measurably after the late 20s; she is now in a lower-risk demographic bracket and aging into an even lower-risk profile.` },
     { w: 'LOW',      c: C.blue,  label: 'SCI Cambridge Springs Program Access', detail: "Cambridge Springs is a women's state facility offering substance abuse, educational, and vocational programming. Documented participation in any of these would be the single most impactful factor she could present at a hearing — not confirmed in the public record." },
   ];
 
@@ -1356,7 +1356,7 @@ function CaseDashboard() {
             ))}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: 12 }}>
-            <StatCard label="Days Since Offense" value={daysOffense.toLocaleString()} sub="Age 29 → 35" accent={C.red} icon="🔴" C={C} />
+            <StatCard label="Days Since Offense" value={daysOffense.toLocaleString()} sub={`Age 29 → ${currentAge}`} accent={C.red} icon="🔴" C={C} />
             <StatCard label="Days in Custody"    value={daysArrest.toLocaleString()}  sub="Since Jan 18, 2021" accent={C.orange} icon="🔒" C={C} />
             <StatCard label="Days Past Minimum"  value={daysPastMin} sub="Parole-eligible" accent={C.green} icon="✅" C={C} />
             <StatCard label="Days to Max"        value={daysToMax.toLocaleString()} sub="Jun 2033 · age 42" accent={C.blue} icon="📅" C={C} />
