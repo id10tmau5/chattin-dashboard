@@ -1713,7 +1713,7 @@ function CaseDashboard() {
   }];
 
   // ── Key Dates ──────────────────────────────────────────────────────────────
-  const TODAY = new Date(2026, 5, 16);
+  const TODAY = new Date(); // live 'now' — every day-count/%/age below derives from this
   const OFFENSE = new Date(2021, 0, 10);
   const ARREST = new Date(2021, 0, 18);
   const SENTENCED = new Date(2021, 5, 8);
@@ -1737,7 +1737,20 @@ function CaseDashboard() {
   const daysToPess = daysBetween(TODAY, PESS_DATE);
   const daysMugshotToMin = daysBetween(MUGSHOT_DT, MIN_DATE);
   const currentAge = ageAt(TODAY);
-  const daysToNextBD = daysBetween(TODAY, new Date(2027, 1, 21));
+  // Next Feb 21 on/after today (rolls over automatically each year)
+  const nextBirthday = (() => {
+    const y = TODAY.getFullYear();
+    const thisYear = new Date(y, 1, 21);
+    return TODAY <= thisYear ? thisYear : new Date(y + 1, 1, 21);
+  })();
+  const daysToNextBD = daysBetween(TODAY, nextBirthday);
+  // M/D/YYYY formatter reused by the status badge, profile, and footer
+  const fmtMDY = d => {
+    const x = d instanceof Date ? d : new Date(d);
+    return isNaN(x.getTime()) ? '' : `${x.getMonth() + 1}/${x.getDate()}/${x.getFullYear()}`;
+  };
+  // Date the status was last confirmed (from the scrape), else today's date
+  const lastConfirmed = docStatus && docStatus.lastChecked ? fmtMDY(docStatus.lastChecked) : fmtMDY(TODAY);
   const charges = [{
     seq: 3,
     grade: 'F2',
@@ -1796,7 +1809,7 @@ function CaseDashboard() {
     docket: 'CP-54-CR-0000327-2010',
     charge: 'Corruption of Minors',
     grade: 'M1',
-    outcome: 'IPP — 12 months'
+    outcome: 'IPP (Intermediate Punishment Program) — 12 months'
   }, {
     year: '2016',
     arrestAge: 25,
@@ -1899,7 +1912,7 @@ function CaseDashboard() {
     future: true
   }, {
     date: PESS_DATE,
-    label: 'Pessimistic (est.)',
+    label: 'Pessimistic Release (est.)',
     sub: 'Multiple denial scenario',
     dot: C.textDim,
     age: ageAt(PESS_DATE),
@@ -1964,14 +1977,14 @@ function CaseDashboard() {
   }, {
     age: 36,
     year: '2027',
-    label: 'Optimistic Release',
+    label: 'Optimistic Release (est.)',
     note: '~20–35%',
     color: C.textDim,
     future: true
   }, {
     age: 37,
     year: '2028',
-    label: 'Likely Release',
+    label: 'Likely Release (est.)',
     note: '~50–65%',
     color: C.textDim,
     future: true
@@ -2378,7 +2391,7 @@ function CaseDashboard() {
       fontSize: 11,
       color: C.textSub
     }
-  }, "Women's State Prison · Crawford County, PA · Transferred ", fmtDate(SCI), " · Last updated by DOC: 6/16/2026 at 4:00 AM")), /*#__PURE__*/React.createElement("div", {
+  }, "Women's State Prison · Crawford County, PA · Transferred ", fmtDate(SCI), " · Last confirmed via DOC locator: ", lastConfirmed)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
@@ -2388,8 +2401,8 @@ function CaseDashboard() {
     }
   }, (() => {
     const s = docStatus && docStatus.status;
-    const dt = docStatus && docStatus.lastDOCUpdate || '6/16/2026';
-    const lbl = s === 'Inmate' ? '🔒 IN CUSTODY · ' + dt : s === 'Parolee' ? '📋 ON PAROLE · ' + dt : s === 'Discharged' ? '✅ DISCHARGED · ' + dt : '🔒 IN CUSTODY · 6/16/2026';
+    const dt = docStatus && docStatus.lastDOCUpdate || lastConfirmed;
+    const lbl = s === 'Inmate' ? '🔒 IN CUSTODY · ' + dt : s === 'Parolee' ? '📋 ON PAROLE · ' + dt : s === 'Discharged' ? '✅ DISCHARGED · ' + dt : '🔒 IN CUSTODY · ' + lastConfirmed;
     const clr = s === 'Inmate' ? C.red : s === 'Parolee' ? C.gold : s === 'Discharged' ? C.green : C.red;
     return /*#__PURE__*/React.createElement("span", {
       style: {
@@ -2634,7 +2647,7 @@ function CaseDashboard() {
     C: C
   }), /*#__PURE__*/React.createElement(InfoRow, {
     label: "Age",
-    value: "35",
+    value: `${currentAge}`,
     mono: true,
     color: C.purple,
     C: C
@@ -2667,7 +2680,7 @@ function CaseDashboard() {
     C: C
   }), /*#__PURE__*/React.createElement(InfoRow, {
     label: "Last Updated",
-    value: "6/16/2026 · 4:00:31 AM",
+    value: lastConfirmed,
     mono: true,
     color: C.green,
     C: C
@@ -2706,7 +2719,61 @@ function CaseDashboard() {
     defaultOpen: true,
     icon: "⏱️",
     C: C
-  }, /*#__PURE__*/React.createElement("div", {
+  }, docStatus && docStatus.status === 'Parolee' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.goldFaint,
+      border: `1px solid ${C.gold}77`,
+      borderRadius: 8,
+      padding: '14px 18px',
+      marginBottom: 16,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 28
+    }
+  }, "📋"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15,
+      color: C.gold
+    }
+  }, "RELEASED ON PAROLE"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: C.textSub,
+      marginTop: 3
+    }
+  }, docStatus.currentLocation ? `Now under supervision · ${docStatus.currentLocation}` : 'Now under community supervision', " · confirmed ", lastConfirmed))), docStatus && docStatus.status === 'Discharged' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.greenFaint,
+      border: `1px solid ${C.green}77`,
+      borderRadius: 8,
+      padding: '14px 18px',
+      marginBottom: 16,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 28
+    }
+  }, "✅"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15,
+      color: C.green
+    }
+  }, "SENTENCE COMPLETE — DISCHARGED"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: C.textSub,
+      marginTop: 3
+    }
+  }, "No longer under DOC custody or supervision · confirmed ", lastConfirmed))), /*#__PURE__*/React.createElement("div", {
     style: {
       background: C.greenFaint,
       border: `1px solid ${C.green}55`,
@@ -3709,8 +3776,8 @@ function CaseDashboard() {
     C: C
   }), /*#__PURE__*/React.createElement(StatCard, {
     label: "Years in System",
-    value: "17",
-    sub: "Age 18 → age 35",
+    value: `${currentAge - 18}`,
+    sub: `Age 18 → age ${currentAge}`,
     accent: C.red,
     C: C
   }))), /*#__PURE__*/React.createElement(Section, {
@@ -4034,7 +4101,7 @@ function CaseDashboard() {
       flexDirection: 'column',
       gap: 6
     }
-  }, [['Current Age', `${currentAge} years old`], ['Height', `5' 7"`], ['Next Birthday', `Feb 21, 2027 (${daysToNextBD}d)`], ['Age at Offense', '29 years old'], ['Age at Sentencing', '30 years old'], ['Age at Min. Date', '35 years old']].map(([k, v]) => /*#__PURE__*/React.createElement("div", {
+  }, [['Current Age', `${currentAge} years old`], ['Height', `5' 7"`], ['Next Birthday', `Feb 21, ${nextBirthday.getFullYear()} (${daysToNextBD}d)`], ['Age at Offense', '29 years old'], ['Age at Sentencing', '30 years old'], ['Age at Min. Date', '35 years old'], ['Age at Parole', 'Pending'], ['Age at Release', 'Pending']].map(([k, v]) => /*#__PURE__*/React.createElement("div", {
     key: k,
     style: {
       display: 'flex',
@@ -4562,7 +4629,7 @@ function CaseDashboard() {
       cursor: 'default',
       userSelect: 'none'
     }
-  }, "SOURCE: PA UJS Portal · PA DOC Inmate Locator · CP-54-CR-0000435-2021 · Inmate #PE1239 · Printed June 16, 2026"), /*#__PURE__*/React.createElement("div", null, "All data is public record. Not a substitute for an official PA State Police criminal history background check."), /*#__PURE__*/React.createElement("div", {
+  }, "SOURCE: PA UJS Portal · PA DOC Inmate Locator · CP-54-CR-0000435-2021 · Inmate #PE1239 · Rendered ", lastConfirmed), /*#__PURE__*/React.createElement("div", null, "All data is public record. Not a substitute for an official PA State Police criminal history background check."), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 8,
       display: 'flex',
