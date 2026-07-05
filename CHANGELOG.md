@@ -18,7 +18,7 @@ All notable changes to this project are documented here.
 - **🧯 Clear Override** — Instantly clears a manual override by writing an unlocked, reset `status.json` via the Contents API (no workflow wait), so a test value is never left showing. A follow-up **Run Status Check** repopulates the live value.
 
 ### Fixed
-- **Static ACT 84 wording** — The parole-factor line about DOC payment compliance no longer says "through May 2026 — over 4 continuous years"; it now reads "to the present — over N continuous years" and computes N live from the current date.
+- **Static ACT 84 wording (two lines)** — Both hardcoded ACT 84 references are now live: the Parole Board factor line no longer says "through May 2026 — over 4 continuous years" (now "to the present — over N continuous years", N computed from the current date), and the Parole Release Projections line no longer says "confirm she remained incarcerated through last month" (now ties the current-custody claim to the live status check via `lastConfirmed`). The month-by-month ACT 84 payment ledger stays as-is, since those are actual recorded amounts.
 
 ### Changed
 - **Manual Status Override** now lives behind its own toggle rather than the debug toggle, grouping it with Clear Override as a self-contained testing surface.

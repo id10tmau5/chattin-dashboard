@@ -1396,7 +1396,7 @@ function CaseDashboard() {
           </div>
           <div style={{ background: C.purpleFaint, border: `1px solid ${C.purple}44`, borderRadius: 8, padding: '12px 16px' }}>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, color: C.purple }}>⚠️ Updated: Active Parole Processing Underway</div>
-            <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6 }}>Parole #345JW assigned + June 1 mugshot update shifts the near-term picture. She is actively in parole processing — a hearing may have already occurred or be imminent. The most likely near-term outcome is either a conditional grant or a denial with a future hearing date. ACT 84 payments through May 2026 confirm she remained incarcerated through last month.</div>
+            <div style={{ fontSize: 12, color: C.textSub, lineHeight: 1.6 }}>Parole #345JW assigned + June 1 mugshot update shifts the near-term picture. She is actively in parole processing — a hearing may have already occurred or be imminent. The most likely near-term outcome is either a conditional grant or a denial with a future hearing date. ACT 84 payments recorded through May 2026 confirm continuous incarceration to that point; her current custody status is verified live above (last checked {lastConfirmed}).</div>
           </div>
         </Section>
 
